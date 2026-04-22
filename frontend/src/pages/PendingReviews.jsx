@@ -10,8 +10,22 @@ export default function PendingReviews() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (user) fetchPendingReviews()
-  }, [user])
+    if (!user) return
+    fetchPendingReviews()
+
+    // Real-time: re-fetch when rides or reviews change
+    const channel = supabase
+      .channel(`pending-reviews-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rides' },
+        () => fetchPendingReviews())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ride_requests' },
+        () => fetchPendingReviews())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ride_reviews' },
+        () => fetchPendingReviews())
+      .subscribe()
+
+    return () => supabase.removeChannel(channel)
+  }, [user?.id])
 
   const fetchPendingReviews = async () => {
     setLoading(true)

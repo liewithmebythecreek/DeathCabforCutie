@@ -3,6 +3,8 @@
 :root {
   --bg-dark: #f0fdf4;
   --bg-card: rgba(255, 255, 255, 0.8); /* Higher opacity for contrast and less washout */
+  --bg-solid: #ffffff;               /* Fully opaque — use for floating panels/dropdowns */
+  --bg-subtle: #f8fafc;              /* Very light grey for section backgrounds */
   --primary: #248A52;
   --primary-hover: #1D7745;
   --accent: #257287;
@@ -165,5 +167,20 @@ h1, h2, h3, h4, h5, h6 {
   }
   .responsive-grid, .responsive-grid-3, .responsive-grid-2 {
     grid-template-columns: 1fr !important;
+  }
+  /* Publish ride: stack form → price panel → map vertically on mobile */
+  .create-ride-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Tablet: show price panel + map side by side; form above */
+@media (min-width: 769px) and (max-width: 1100px) {
+  .create-ride-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  /* Price panel spans full width on tablet */
+  .create-ride-grid > div:first-child {
+    grid-column: 1 / -1;
   }
 }

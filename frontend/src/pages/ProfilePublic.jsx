@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
-import { Star, MapPin, Clock, Users, User as UserIcon, Calendar, Settings, IndianRupee } from 'lucide-react'
+import { Star, MapPin, Clock, Users, User as UserIcon, Calendar, Settings, IndianRupee, EyeOff } from 'lucide-react'
 import ReviewList from '../components/ReviewList'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -17,32 +17,58 @@ export default function ProfilePublic() {
     fetchProfileData()
   }, [id])
 
+  // Real-time: refresh whenever rides or requests change for this user
+  useEffect(() => {
+    const channel = supabase
+      .channel(`profile-public-${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rides' },
+        () => fetchProfileData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ride_requests' },
+        () => fetchProfileData())
+      .subscribe()
+    return () => supabase.removeChannel(channel)
+  }, [id])
+
   const fetchProfileData = async () => {
     setLoading(true)
     try {
-      // Fetch user
+      // Fetch user profile
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
         .eq('id', id)
         .single()
-      
       if (userError) throw userError
       setProfile(userData)
 
-      // Fetch their active rides (not completed)
-      const { data: ridesData, error: ridesError } = await supabase
+      const ACTIVE_STATUSES = ['published', 'active', 'pending_driver', 'negotiating', 'price_proposed']
+
+      // 1. Rides they published as creator
+      const { data: createdData } = await supabase
         .from('rides')
         .select('*')
         .eq('creator_id', id)
-        .in('status', ['published', 'active', 'pending_driver', 'negotiating', 'price_proposed'])
-        .order('departure_time', { ascending: true })
+        .in('status', ACTIVE_STATUSES)
 
-      if (ridesError) throw ridesError
-      setActiveRides(ridesData || [])
+      // 2. Rides they joined as an approved passenger
+      const { data: requestData } = await supabase
+        .from('ride_requests')
+        .select('rides!inner(*)')
+        .eq('user_id', id)
+        .eq('status', 'approved')
+
+      const joinedRides = (requestData || [])
+        .map(r => r.rides)
+        .filter(r => ACTIVE_STATUSES.includes(r.status))
+
+      // Merge + deduplicate by ride id, sort soonest first
+      const merged = [...(createdData || []), ...joinedRides]
+      const unique = Array.from(new Map(merged.map(r => [r.id, r])).values())
+      unique.sort((a, b) => new Date(a.departure_time) - new Date(b.departure_time))
+      setActiveRides(unique)
 
     } catch (err) {
-      console.error("Error fetching profile:", err)
+      console.error('Error fetching profile:', err)
     } finally {
       setLoading(false)
     }
@@ -50,6 +76,12 @@ export default function ProfilePublic() {
 
   if (loading) return <div style={{ textAlign: 'center', padding: '2rem' }}>Loading profile...</div>
   if (!profile) return <div style={{ textAlign: 'center', padding: '2rem' }}>User not found</div>
+
+  // Privacy: anonymize when the profile owner has opted out AND the viewer is someone else
+  const isOwnProfile = user?.id === id
+  const anonymize    = !isOwnProfile && profile.show_identity === false
+
+  const displayName = anonymize ? 'User' : profile.name
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -62,26 +94,38 @@ export default function ProfilePublic() {
           </Link>
         )}
 
-        <div style={{ 
-          width: '100px', 
-          height: '100px', 
-          borderRadius: '50%', 
-          background: 'var(--primary)', 
-          display: 'flex', 
-          alignItems: 'center', 
+        <div style={{
+          width: '100px',
+          height: '100px',
+          borderRadius: '50%',
+          background: anonymize ? 'var(--border)' : 'var(--primary)',
+          display: 'flex',
+          alignItems: 'center',
           justifyContent: 'center',
           overflow: 'hidden',
-          color: 'white'
+          color: anonymize ? 'var(--text-muted)' : 'white'
         }}>
-          {profile.avatar_url ? (
-            <img src={profile.avatar_url} alt={profile.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          {!anonymize && profile.avatar_url ? (
+            <img src={profile.avatar_url} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
             <UserIcon size={48} />
           )}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <h2 style={{ margin: 0 }}>{profile.name}</h2>
+          <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {displayName}
+            {anonymize && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                fontSize: '0.75rem', color: 'var(--text-muted)',
+                background: 'rgba(255,255,255,0.07)', padding: '0.2rem 0.6rem',
+                borderRadius: '6px', border: '1px solid var(--border)', fontWeight: 'normal'
+              }}>
+                <EyeOff size={12} /> Identity hidden
+              </span>
+            )}
+          </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'var(--text-muted)' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#fbbf24', fontWeight: 'bold' }}>
               <Star size={16} fill="currentColor" /> {profile.rating?.toFixed(1) || 'No ratings'}
@@ -90,7 +134,7 @@ export default function ProfilePublic() {
             <span>{profile.total_reviews || 0} reviews</span>
             <span>•</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-              <Calendar size={14} /> 
+              <Calendar size={14} />
               Member since {new Date(profile.created_at || Date.now()).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
             </span>
           </div>
@@ -101,7 +145,7 @@ export default function ProfilePublic() {
         
         {/* Active Rides Section */}
         <div>
-          <h3 style={{ marginBottom: '1rem' }}>Active Rides by {profile.name.split(' ')[0]}</h3>
+          <h3 style={{ marginBottom: '1rem' }}>Active Rides with {displayName.split(' ')[0]}</h3>
           {activeRides.length === 0 ? (
             <div className="glass-card" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
               No active rides at the moment.

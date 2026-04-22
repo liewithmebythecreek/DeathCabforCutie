@@ -16,7 +16,7 @@ export default function DriverLogin() {
   // Profile fields
   const [name, setName] = useState('')
   const [vehicleNumber, setVehicleNumber] = useState('')
-  const [vehicleType, setVehicleType] = useState('Auto')
+  const [vehicleType, setVehicleType] = useState('autorickshaw')
 
   const formatPhone = (raw) => {
     const digits = raw.replace(/\D/g, '')
@@ -43,10 +43,11 @@ export default function DriverLogin() {
         throw new Error("This phone number is not registered. Please ask an admin to add you first at /admin/drivers")
       }
 
-      // Pre-fill profile state from the admin data so they don't have to retype it
+      // Pre-fill profile state from the admin data — normalise legacy 'Auto'/'Cab' values
       setName(existingDriver.name || '')
       setVehicleNumber(existingDriver.vehicle_number || '')
-      setVehicleType(existingDriver.vehicle_type || 'Auto')
+      const rawType = existingDriver.vehicle_type || 'Auto'
+      setVehicleType(rawType === 'Cab' ? 'cab' : 'autorickshaw')
 
       // 2. Proceed with OTP
       const { error: otpError } = await supabase.auth.signInWithOtp({ phone: formatted })
@@ -80,6 +81,11 @@ export default function DriverLogin() {
         .maybeSingle()
 
       if (profile) {
+        // Sync vehicle_type from registered_vehicles in case admin changed it
+        await supabase
+          .from('drivers')
+          .update({ vehicle_type: vehicleType })
+          .eq('id', data.user.id)
         navigate('/driver-dashboard')
       } else {
         setStep(STEPS.PROFILE)
@@ -104,7 +110,7 @@ export default function DriverLogin() {
         name: name.trim(),
         mobile_number: formatPhone(phone),
         vehicle_number: vehicleNumber.trim().toUpperCase(),
-        vehicle_type: vehicleType,
+        vehicle_type: vehicleType, // already canonical ('autorickshaw' | 'cab')
         status: 'available'
       }])
 
@@ -277,8 +283,8 @@ export default function DriverLogin() {
                   value={vehicleType}
                   onChange={e => setVehicleType(e.target.value)}
                 >
-                  <option value="Auto">Auto Rickshaw</option>
-                  <option value="Cab">Cab / Car</option>
+                  <option value="autorickshaw">🛺 Auto Rickshaw</option>
+                  <option value="cab">🚕 Cab / Car</option>
                 </select>
               </div>
               <button type="submit" className="btn" disabled={loading} style={{ background: '#22c55e' }}>

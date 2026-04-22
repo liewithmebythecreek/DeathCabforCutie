@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { reverseGeocode, getRoute } from '../utils/geoUtils';
+import { MAP_DEFAULTS } from '../config/locations';
 import 'leaflet/dist/leaflet.css';
 
 // Fix leaf icon issues
@@ -147,7 +148,7 @@ export default function MapSelector({
 
   return (
     <div style={{ flex: 1, minHeight: '350px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-      <MapContainer center={[30.354, 76.372]} zoom={14} style={{ height: '100%', width: '100%' }}>
+      <MapContainer center={MAP_DEFAULTS.center} zoom={MAP_DEFAULTS.zoom} style={{ height: '100%', width: '100%' }}>
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; CartoDB'

@@ -13,6 +13,8 @@ import LeaveRideButton from '../components/LeaveRideButton'
 import RideReviewPanel from '../components/RideReviewPanel'
 import NegotiationPanel from '../components/NegotiationPanel'
 import { getRoute, openNavigation } from '../utils/geoUtils'
+import { notifyJoinRequest, notifyJoinAccepted, notifyJoinRejected } from '../utils/notificationService'
+import { PRIORITY_CONFIG } from '../utils/priorityEngine'
 
 // Fix default leaf icon issues
 delete L.Icon.Default.prototype._getIconUrl
@@ -113,7 +115,7 @@ export default function RideDetails() {
     try {
       const { data: rideData, error: rErr } = await supabase
         .from('rides')
-        .select(`*, users!creator_id(name, email, avatar_url, rating), registered_vehicles:driver_id(*), drivers:assigned_driver_id(id, name, average_rating)`)
+        .select(`*, users!creator_id(name, email, avatar_url, rating, show_identity), registered_vehicles:driver_id(*), drivers:assigned_driver_id(*)`)
         .eq('id', id).single()
       if (rErr) throw rErr
       setRide(rideData)
@@ -142,7 +144,7 @@ export default function RideDetails() {
   const fetchRequests = async () => {
     const { data: reqData } = await supabase
       .from('ride_requests')
-      .select(`*, users!user_id(name, email, avatar_url, rating)`)
+      .select(`*, users!user_id(name, email, avatar_url, rating, show_identity)`)
       .eq('ride_id', id)
     
     setRequests(reqData || [])
@@ -153,7 +155,7 @@ export default function RideDetails() {
   const fetchOffers = async () => {
     const { data } = await supabase
       .from('ride_offers')
-      .select(`*, users!fk_ride_offers_driver_user(name, rating, avatar_url)`)
+      .select(`*, users!fk_ride_offers_driver_user(name, rating, avatar_url), drivers!ride_offers_driver_id_fkey(vehicle_number, vehicle_type, mobile_number)`)
       .eq('ride_id', id)
       .not('status', 'in', '("rejected_by_student", "rejected_system")')
     
@@ -169,21 +171,40 @@ export default function RideDetails() {
   const handleJoinRequest = async () => {
     if (!user) return navigate('/login')
     if (!user.profile_completed) return alert("Please complete your profile first.")
-    
-    await supabase.from('ride_requests').insert([
+
+    const { data: inserted } = await supabase.from('ride_requests').insert([
       { ride_id: id, user_id: user.id, status: 'pending' }
-    ])
+    ]).select().single()
+
+    // Notify the ride owner
+    if (inserted) {
+      await notifyJoinRequest({
+        ownerId:       ride.creator_id,
+        requesterName: user.name || 'Someone',
+        rideId:        id,
+        senderId:      user.id,
+      })
+    }
     fetchRequests()
   }
 
   const handleApprove = async (reqId) => {
     await supabase.from('ride_requests').update({ status: 'approved' }).eq('id', reqId)
-    // Seat decrement is now handled by DB trigger trg_update_ride_seats
+    // Notify the passenger
+    const req = requests.find(r => r.id === reqId)
+    if (req) {
+      await notifyJoinAccepted({ passengerId: req.user_id, rideId: id, senderId: user.id })
+    }
     fetchRequests()
   }
 
   const handleReject = async (reqId) => {
     await supabase.from('ride_requests').update({ status: 'rejected' }).eq('id', reqId)
+    // Notify the passenger
+    const req = requests.find(r => r.id === reqId)
+    if (req) {
+      await notifyJoinRejected({ passengerId: req.user_id, rideId: id, senderId: user.id })
+    }
     fetchRequests()
   }
 
@@ -227,6 +248,16 @@ export default function RideDetails() {
   const isLiveRide = isPublished || isActive
   const canChat = (isCreator || isApproved) && !isCancelled && !isNegotiating
 
+  // ── Privacy logic ──────────────────────────────────────────────────────────
+  // Publisher's identity is visible when:
+  //   a) the viewer IS the creator (their own ride)
+  //   b) the viewer has an approved / completed request (trusted participant)
+  //   c) the publisher themselves has show_identity = true (default)
+  const publisherWantsAnon = ride.users?.show_identity === false
+  const viewerIsTrusted    = isCreator || isApproved || isCompleted || isAwaiting
+  const anonymizePublisher  = publisherWantsAnon && !viewerIsTrusted
+  // ──────────────────────────────────────────────────────────────────────────
+
   const pickupPos = [ride.pickup_lat, ride.pickup_lng]
   const destPos = [ride.destination_lat, ride.destination_lng]
   const bounds = L.latLngBounds([pickupPos, destPos])
@@ -265,13 +296,14 @@ export default function RideDetails() {
           <div style={{ padding: '1.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h2 style={{ margin: 0 }}>Ride Details</h2>
-              <ProfileCard 
+              <ProfileCard
                 user={{
                   id: ride.creator_id,
                   name: ride.users?.name,
                   avatar_url: ride.users?.avatar_url,
                   rating: ride.users?.rating
-                }} 
+                }}
+                anonymize={anonymizePublisher}
               />
             </div>
 
@@ -290,6 +322,49 @@ export default function RideDetails() {
                 ⏳ AWAITING DRIVER
               </div>
             )}
+            {ride.vehicle_type && (
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                padding: '0.2rem 0.7rem', borderRadius: '999px', fontSize: '0.8rem', fontWeight: '700',
+                marginBottom: '1rem', marginLeft: '0.5rem',
+                background: ride.vehicle_type === 'cab' ? 'rgba(99,102,241,0.15)' : 'rgba(234,179,8,0.15)',
+                color: ride.vehicle_type === 'cab' ? '#818cf8' : '#ca8a04',
+                border: `1px solid ${ride.vehicle_type === 'cab' ? 'rgba(99,102,241,0.3)' : 'rgba(234,179,8,0.3)'}`,
+              }}>
+                {ride.vehicle_type === 'cab' ? '🚕 Cab' : '🛺 Auto Rickshaw'}
+              </div>
+            )}
+            {/* Priority badge */}
+            {ride.priority_type && ride.priority_type !== 'NORMAL' && (() => {
+              const pc = PRIORITY_CONFIG[ride.priority_type]
+              if (!pc) return null
+              return (
+                <>
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                    padding: '0.2rem 0.7rem', borderRadius: '999px', fontSize: '0.8rem', fontWeight: '700',
+                    marginBottom: '1rem', marginLeft: '0.5rem',
+                    background: pc.bg, color: pc.color, border: `1px solid ${pc.border}`,
+                  }}>
+                    {pc.emoji} {pc.label}
+                  </div>
+                  {ride.priority_notes && (
+                    <div style={{
+                      marginBottom: '0.75rem',
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: '8px',
+                      background: pc.bg,
+                      border: `1px solid ${pc.border}`,
+                      color: pc.color,
+                      fontSize: '0.82rem',
+                      fontWeight: '600',
+                    }}>
+                      {pc.emoji} {ride.priority_notes}
+                    </div>
+                  )}
+                </>
+              )
+            })()}
 
             <div style={{ margin: '1rem 0', display: 'flex', flexDirection: 'column', gap: '0.5rem', color: 'var(--text-muted)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -361,6 +436,13 @@ export default function RideDetails() {
                   <div style={{ color: 'var(--text)', marginBottom: '0.25rem' }}><strong>Assigned Driver:</strong> {ride.registered_vehicles.name}</div>
                   <div><strong>Vehicle:</strong> {ride.registered_vehicles.vehicle_number} ({ride.registered_vehicles.vehicle_type})</div>
                   <div><strong>Contact:</strong> 📞 {ride.registered_vehicles.mobile_number}</div>
+                </div>
+              )}
+              {ride.drivers && !ride.external_driver && !ride.registered_vehicles && (
+                <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border)' }}>
+                  <div style={{ color: 'var(--text)', marginBottom: '0.25rem' }}><strong>Assigned Driver:</strong> {ride.drivers.name}</div>
+                  <div><strong>Vehicle:</strong> {ride.drivers.vehicle_number} ({ride.drivers.vehicle_type})</div>
+                  <div><strong>Contact:</strong> 📞 {ride.drivers.mobile_number}</div>
                 </div>
               )}
               {!isCancelled && (
@@ -491,6 +573,7 @@ export default function RideDetails() {
                         avatar_url: req.users?.avatar_url,
                         rating: req.users?.rating
                       }}
+                      anonymize={false}
                     />
                     {req.status === 'pending' ? (
                        <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -508,6 +591,56 @@ export default function RideDetails() {
             )}
           </div>
         )}
+
+        {/* ── Approved Participants ─────────────────────────────────────────────
+            Visible to every confirmed member of the ride (creator + approved
+            passengers). Real names and avatars are always shown here — this is
+            the trust layer once someone has been accepted into the ride.
+        ─────────────────────────────────────────────────────────────────────── */}
+        {(isCreator || isApproved) && !isCancelled && (isLiveRide || isCompleted || isAwaiting) && (() => {
+          const approved = requests.filter(r => r.status === 'approved')
+          if (approved.length === 0) return null
+          return (
+            <div className="glass-card">
+              <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '1rem' }}>✅</span> Ride Participants
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 'normal', marginLeft: 'auto' }}>
+                  {approved.length + 1} people
+                </span>
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {/* Publisher row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', background: 'rgba(99,102,241,0.08)', borderRadius: '8px', border: '1px solid rgba(99,102,241,0.15)' }}>
+                  <ProfileCard
+                    user={{
+                      id: ride.creator_id,
+                      name: ride.users?.name,
+                      avatar_url: ride.users?.avatar_url,
+                      rating: ride.users?.rating
+                    }}
+                    anonymize={false}
+                    subtitle="Publisher"
+                  />
+                </div>
+                {/* Approved passengers */}
+                {approved.map(req => (
+                  <div key={req.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', background: 'rgba(255,255,255,0.04)', borderRadius: '8px' }}>
+                    <ProfileCard
+                      user={{
+                        id: req.user_id,
+                        name: req.users?.name,
+                        avatar_url: req.users?.avatar_url,
+                        rating: req.users?.rating
+                      }}
+                      anonymize={false}
+                      subtitle="Passenger"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Chat Interface */}
         <RideChat 

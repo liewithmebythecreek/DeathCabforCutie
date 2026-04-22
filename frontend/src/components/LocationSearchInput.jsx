@@ -1,58 +1,82 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, MapPin, Navigation, Loader2 } from 'lucide-react';
+import { Search, MapPin, Navigation, Loader2, Star } from 'lucide-react';
 import { PRESET_LOCATIONS } from '../config/locations';
 import { searchLocation, reverseGeocode } from '../utils/geoUtils';
 
+/**
+ * Location search input with autocomplete.
+ *
+ * Priority order for suggestions:
+ *  1. Preset / custom locations (filtered by query)   ← always shown first
+ *  2. External Nominatim / Photon results
+ *
+ * When the query is empty, only presets (+ "Use Current Location") are shown.
+ */
 export default function LocationSearchInput({
   label,
   value,
   onChange,
   onSelect,
-  placeholder = "Search for a location..."
+  placeholder = "Search for a location...",
 }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState([]);
-  const [error, setError] = useState(null);
-  const wrapperRef = useRef(null);
-  const debounceTimer = useRef(null);
+  const [isOpen, setIsOpen]     = useState(false);
+  const [loading, setLoading]   = useState(false);
+  const [externalResults, setExternalResults] = useState([]);
+  const [error, setError]       = useState(null);
+  const wrapperRef              = useRef(null);
+  const debounceTimer           = useRef(null);
 
-  // Close dropdown when clicking outside
+  // ── Filtered presets (case-insensitive substring match) ────────────────────
+  const filteredPresets = value && value.trim()
+    ? PRESET_LOCATIONS.filter((p) =>
+        p.name.toLowerCase().includes(value.trim().toLowerCase())
+      )
+    : PRESET_LOCATIONS;
+
+  const hasQuery   = !!(value && value.trim());
+  const showPreset = filteredPresets.length > 0;
+
+  // ── Close dropdown on outside click ────────────────────────────────────────
   useEffect(() => {
-    function handleClickOutside(event) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+    const handler = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
         setIsOpen(false);
       }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Fetch results based on query
+  // ── Debounced external search (only when query is non-empty) ───────────────
   useEffect(() => {
     if (!isOpen) return;
 
-    // If empty query, early return (will show presets naturally)
-    if (!value || value.trim() === '') {
-      setResults([]);
+    if (!hasQuery) {
+      setExternalResults([]);
       setError(null);
       return;
     }
 
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
-
     setLoading(true);
     setError(null);
 
     debounceTimer.current = setTimeout(async () => {
       try {
         const data = await searchLocation(value);
-        setResults(data);
-        if (data.length === 0) {
-          setError("No results found");
+        // Exclude external results that duplicate a preset (by name)
+        const presetNames = new Set(
+          filteredPresets.map((p) => p.name.toLowerCase())
+        );
+        const deduped = data.filter(
+          (r) => !presetNames.has(r.name?.toLowerCase())
+        );
+        setExternalResults(deduped);
+        if (filteredPresets.length === 0 && deduped.length === 0) {
+          setError('No results found');
         }
       } catch (err) {
-        if (err.name !== 'AbortError') setError("Failed to search location");
+        if (err.name !== 'AbortError') setError('Failed to search location');
       } finally {
         setLoading(false);
       }
@@ -61,6 +85,7 @@ export default function LocationSearchInput({
     return () => clearTimeout(debounceTimer.current);
   }, [value, isOpen]);
 
+  // ── Handlers ───────────────────────────────────────────────────────────────
   const handleSelect = (loc) => {
     onChange(loc.name);
     setIsOpen(false);
@@ -69,33 +94,46 @@ export default function LocationSearchInput({
 
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser");
+      alert('Geolocation is not supported by your browser');
       return;
     }
     setLoading(true);
     setIsOpen(true);
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-      try {
-        const { latitude, longitude } = pos.coords;
-        const locName = await reverseGeocode(latitude, longitude);
-        handleSelect({ lat: latitude, lng: longitude, name: locName.name || "Current Location" });
-      } catch (err) {
-        setError("Could not get current location address.");
-      } finally {
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+          const locName = await reverseGeocode(latitude, longitude);
+          handleSelect({
+            lat: latitude,
+            lng: longitude,
+            name: locName.name || 'Current Location',
+          });
+        } catch {
+          setError('Could not get current location address.');
+        } finally {
+          setLoading(false);
+        }
+      },
+      () => {
         setLoading(false);
+        setError('Location access denied.');
       }
-    }, () => {
-      setLoading(false);
-      setError("Location access denied.");
-    });
+    );
   };
 
-  const showPresets = !value || value.trim() === '';
-
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
       {label && (
-        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+        <label
+          style={{
+            display: 'block',
+            marginBottom: '0.5rem',
+            color: 'var(--text-muted)',
+            fontSize: '0.9rem',
+          }}
+        >
           {label}
         </label>
       )}
@@ -113,70 +151,162 @@ export default function LocationSearchInput({
           onFocus={() => setIsOpen(true)}
           style={{ paddingLeft: '2.5rem' }}
         />
-        <Search size={18} style={{ position: 'absolute', left: '0.8rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+        <Search
+          size={18}
+          style={{
+            position: 'absolute',
+            left: '0.8rem',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            color: 'var(--text-muted)',
+          }}
+        />
       </div>
 
       {isOpen && (
-        <div style={{
-          position: 'absolute', top: '100%', left: 0, right: 0,
-          background: 'var(--bg-card)', zIndex: 9999,
-          borderRadius: '8px', boxShadow: 'var(--glass-shadow)',
-          marginTop: '0.5rem', maxHeight: '300px', overflowY: 'auto',
-          border: '1px solid var(--border)'
-        }}>
+        <div
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            /* Force solid — override any semi-transparent --bg-card */
+            background: 'var(--bg-solid, #1e1e2e)',
+            backgroundColor: 'var(--bg-solid, #1e1e2e)',
+            zIndex: 9999,
+            borderRadius: '10px',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.3)',
+            marginTop: '0.5rem',
+            maxHeight: '320px',
+            overflowY: 'auto',
+            border: '1px solid var(--border)',
+            isolation: 'isolate',
+          }}
+        >
+          {/* ── Loading spinner ───────────────────────────────────────────── */}
           {loading && (
-            <div style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
-              <Loader2 size={16} className="spin" /> Searching...
+            <div
+              style={{
+                padding: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                color: 'var(--text-muted)',
+              }}
+            >
+              <Loader2 size={16} className="spin" /> Searching…
             </div>
           )}
 
+          {/* ── Error ────────────────────────────────────────────────────── */}
           {!loading && error && (
             <div style={{ padding: '1rem', color: '#ef4444', fontSize: '0.9rem' }}>
               {error}
             </div>
           )}
 
-          {!loading && showPresets && (
-            <div style={{ borderBottom: '1px solid var(--border)' }}>
-              <div
-                onClick={handleUseCurrentLocation}
-                style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: 'var(--primary)', fontWeight: '500' }}
-                className="hover-bg"
-              >
-                <Navigation size={16} /> Use Current Location
-              </div>
+          {/* ── "Use Current Location" ────────────────────────────────────── */}
+          {!hasQuery && (
+            <div
+              onClick={handleUseCurrentLocation}
+              style={{
+                padding: '0.75rem 1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                cursor: 'pointer',
+                color: 'var(--primary)',
+                fontWeight: '500',
+                borderBottom: '1px solid var(--border)',
+              }}
+              className="hover-bg"
+            >
+              <Navigation size={16} /> Use Current Location
+            </div>
+          )}
 
-              <div style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', color: 'var(--text-muted)', background: 'rgba(0,0,0,0.03)' }}>
-                PRESET LOCATIONS
+          {/* ── Preset / custom locations section ────────────────────────── */}
+          {showPreset && (
+            <div>
+              <div
+                style={{
+                  padding: '0.4rem 1rem',
+                  fontSize: '0.75rem',
+                  color: 'var(--text-muted)',
+                  background: 'rgba(0,0,0,0.03)',
+                  letterSpacing: '0.05em',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                }}
+              >
+                <Star size={12} /> NEARBY LOCATIONS
               </div>
-              {PRESET_LOCATIONS.map((preset) => (
+              {filteredPresets.map((preset) => (
                 <div
                   key={preset.id}
                   onClick={() => handleSelect(preset)}
-                  style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+                  style={{
+                    padding: '0.75rem 1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    cursor: 'pointer',
+                    borderBottom: '1px solid var(--border)',
+                  }}
                   className="hover-bg"
                 >
                   <MapPin size={16} color="var(--primary)" />
-                  <div style={{ flex: 1 }}>{preset.name}</div>
+                  <span style={{ flex: 1 }}>{preset.name}</span>
                 </div>
               ))}
             </div>
           )}
 
-          {!loading && !showPresets && results.length > 0 && (
+          {/* ── External / API results (de-duplicated) ───────────────────── */}
+          {!loading && hasQuery && externalResults.length > 0 && (
             <div>
-              {results.map((result, idx) => (
+              <div
+                style={{
+                  padding: '0.4rem 1rem',
+                  fontSize: '0.75rem',
+                  color: 'var(--text-muted)',
+                  background: 'rgba(0,0,0,0.03)',
+                  letterSpacing: '0.05em',
+                  fontWeight: '600',
+                }}
+              >
+                OTHER RESULTS
+              </div>
+              {externalResults.map((result, idx) => (
                 <div
                   key={idx}
                   onClick={() => handleSelect(result)}
-                  style={{ padding: '0.75rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+                  style={{
+                    padding: '0.75rem 1rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.2rem',
+                    cursor: 'pointer',
+                    borderBottom: '1px solid var(--border)',
+                  }}
                   className="hover-bg"
                 >
-                  <div style={{ fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <MapPin size={16} color="var(--primary)" /> {result.name}
+                  <div
+                    style={{
+                      fontWeight: '500',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <MapPin size={16} color="var(--text-muted)" /> {result.name}
                   </div>
                   {result.address && (
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{result.address}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', paddingLeft: '1.5rem' }}>
+                      {result.address}
+                    </div>
                   )}
                 </div>
               ))}
@@ -184,6 +314,7 @@ export default function LocationSearchInput({
           )}
         </div>
       )}
+
       <style>{`
         .hover-bg:hover {
           background: var(--bg-hover) !important;
@@ -193,10 +324,10 @@ export default function LocationSearchInput({
         }
         @keyframes spin {
           from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+          to   { transform: rotate(360deg); }
         }
         :root {
-           --bg-hover: rgba(100, 100, 100, 0.1);
+          --bg-hover: rgba(100, 100, 100, 0.1);
         }
       `}</style>
     </div>

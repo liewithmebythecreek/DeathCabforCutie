@@ -5,6 +5,7 @@ export default function AdminDrivers() {
   const [drivers, setDrivers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [deletingId, setDeletingId] = useState(null)
   
   // Form State
   const [name, setName] = useState('')
@@ -68,13 +69,25 @@ export default function AdminDrivers() {
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this driver?")) return
+  const handleDelete = async (driver) => {
+    if (!window.confirm(`Are you sure you want to delete ${driver.name}?`)) return
+    setError(null)
+    setDeletingId(driver.id)
     try {
-      const { error: delError } = await supabase.from('registered_vehicles').delete().eq('id', id)
+      const { error: delError } = await supabase
+        .from('registered_vehicles')
+        .delete()
+        .eq('id', driver.id)
+
       if (delError) throw delError
+
+      // Keep UI responsive, then re-validate from source of truth.
+      setDrivers(prev => prev.filter(d => d.id !== driver.id))
+      await fetchDrivers()
     } catch (err) {
-      alert("Failed to delete. " + err.message)
+      setError(`Failed to delete driver. ${err.message}`)
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -114,8 +127,8 @@ export default function AdminDrivers() {
           <div>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Vehicle Type</label>
             <select className="input-field" value={vehicleType} onChange={e => setVehicleType(e.target.value)}>
-              <option value="Auto">Auto Rickshaw</option>
-              <option value="Cab">Cab</option>
+              <option value="Auto">🛺 Auto Rickshaw</option>
+              <option value="Cab">🚕 Cab / Car</option>
             </select>
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
@@ -143,7 +156,12 @@ export default function AdminDrivers() {
               ) : drivers.map(d => (
                 <tr key={d.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                   <td style={{ padding: '1rem 0', fontWeight: 'bold' }}>{d.name}</td>
-                  <td style={{ padding: '1rem 0' }}>{d.vehicle_number} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>({d.vehicle_type})</span></td>
+                  <td style={{ padding: '1rem 0' }}>
+                    {d.vehicle_number}{' '}
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      {d.vehicle_type === 'Cab' ? '🚕 Cab' : '🛺 Auto'}
+                    </span>
+                  </td>
                   <td style={{ padding: '1rem 0' }}>{d.mobile_number}</td>
                   <td style={{ padding: '1rem 0' }}>
                     <span style={{ 
@@ -160,8 +178,20 @@ export default function AdminDrivers() {
                      <button onClick={() => handleStatusToggle(d)} style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text)', padding: '0.25rem 0.5rem', borderRadius: '4px', cursor: 'pointer', marginRight: '0.5rem' }}>
                        Toggle Status
                      </button>
-                     <button onClick={() => handleDelete(d.id)} style={{ background: '#ef4444', border: 'none', color: 'white', padding: '0.25rem 0.5rem', borderRadius: '4px', cursor: 'pointer' }}>
-                       Delete
+                     <button
+                       onClick={() => handleDelete(d)}
+                       disabled={deletingId === d.id}
+                       style={{
+                         background: '#ef4444',
+                         border: 'none',
+                         color: 'white',
+                         padding: '0.25rem 0.5rem',
+                         borderRadius: '4px',
+                         cursor: deletingId === d.id ? 'not-allowed' : 'pointer',
+                         opacity: deletingId === d.id ? 0.7 : 1
+                       }}
+                     >
+                       {deletingId === d.id ? 'Deleting...' : 'Delete'}
                      </button>
                   </td>
                 </tr>

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { ArrowUp, ArrowDown, Check, X, Clock, IndianRupee, RefreshCw, Star, Trophy } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { notifyDriverAssigned } from '../utils/notificationService'
 
 const MAX_ROUNDS = 3
 
@@ -172,6 +173,11 @@ export default function NegotiationPanel({ ride, offer, isBestOffer = false, onR
         content: `✅ ${studentName} accepted ${driverName}'s offer of ₹${currentPrice}.`,
         message_type: 'system'
       }])
+      // Notify ride creator + all approved passengers that a driver was assigned
+      const { data: approvedReqs } = await supabase
+        .from('ride_requests').select('user_id').eq('ride_id', ride.id).eq('status', 'approved')
+      const recipientIds = [ride.creator_id, ...(approvedReqs || []).map(r => r.user_id)]
+      await notifyDriverAssigned({ userIds: recipientIds, driverName, rideId: ride.id })
       if (onRideUpdate) onRideUpdate()
     } catch (err) {
       setError(err.message)
@@ -216,6 +222,11 @@ export default function NegotiationPanel({ ride, offer, isBestOffer = false, onR
         content: `✅ ${driverName} accepted ${studentName}'s offer of ₹${currentPrice}.`,
         message_type: 'system'
       }])
+      // Notify ride creator + all approved passengers that a driver was assigned
+      const { data: approvedReqs } = await supabase
+        .from('ride_requests').select('user_id').eq('ride_id', ride.id).eq('status', 'approved')
+      const recipientIds = [ride.creator_id, ...(approvedReqs || []).map(r => r.user_id)]
+      await notifyDriverAssigned({ userIds: recipientIds, driverName: user?.name || driverName, rideId: ride.id })
       if (onRideUpdate) onRideUpdate()
     } catch (err) {
       setError(err.message)
@@ -292,8 +303,14 @@ export default function NegotiationPanel({ ride, offer, isBestOffer = false, onR
               </div>
             )}
           </div>
+          {isStudent && offer?.drivers && (
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', flexDirection: 'column' }}>
+              <span>{offer.drivers.vehicle_number} ({offer.drivers.vehicle_type})</span>
+              <span>📞 {offer.drivers.mobile_number}</span>
+            </div>
+          )}
           {!isDone && (
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
               Round {round}/{MAX_ROUNDS}
             </div>
           )}

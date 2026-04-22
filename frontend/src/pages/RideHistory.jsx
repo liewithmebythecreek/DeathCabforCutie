@@ -10,8 +10,20 @@ export default function RideHistory() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (user) fetchHistory()
-  }, [user])
+    if (!user) return
+    fetchHistory()
+
+    // Real-time: re-fetch when rides or requests change
+    const channel = supabase
+      .channel(`ride-history-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rides' },
+        () => fetchHistory())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ride_requests' },
+        () => fetchHistory())
+      .subscribe()
+
+    return () => supabase.removeChannel(channel)
+  }, [user?.id])
 
   const fetchHistory = async () => {
     setLoading(true)

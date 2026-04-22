@@ -1,7 +1,9 @@
 import React from 'react'
 import { Routes, Route, Navigate, BrowserRouter } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { NotificationProvider } from './contexts/NotificationContext'
 import Navbar from './components/Navbar'
+import ToastContainer from './components/ToastContainer'
 
 // Pages
 import LoginSelector from './pages/LoginSelector'
@@ -16,6 +18,7 @@ import PendingReviews from './pages/PendingReviews'
 import RideHistory from './pages/RideHistory'
 import AdminDrivers from './pages/AdminDrivers'
 import DriverDashboardPage from './pages/DriverDashboardPage'
+import NotificationsPage from './pages/NotificationsPage'
 
 // Protected route for students only
 const StudentRoute = ({ children }) => {
@@ -54,6 +57,7 @@ function AppRoutes() {
   return (
     <div className="app-container">
       {user && <Navbar />}
+      {user && <ToastContainer />}
       <Routes>
         {/* Auth routes — redirect if already logged in */}
         <Route
@@ -82,6 +86,7 @@ function AppRoutes() {
         <Route path="/profile/settings" element={<StudentRoute><ProfilePage /></StudentRoute>} />
         <Route path="/profile/:id" element={<ProtectedRoute><ProfilePublic /></ProtectedRoute>} />
         <Route path="/admin/drivers" element={<AdminRoute><AdminDrivers /></AdminRoute>} />
+        <Route path="/notifications" element={<StudentRoute><NotificationsPage /></StudentRoute>} />
 
         {/* Driver routes */}
         <Route path="/driver-dashboard" element={<DriverRoute><DriverDashboardPage /></DriverRoute>} />
@@ -97,7 +102,9 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <AppRoutes />
+        <NotificationProvider>
+          <AppRoutes />
+        </NotificationProvider>
       </BrowserRouter>
     </AuthProvider>
   )

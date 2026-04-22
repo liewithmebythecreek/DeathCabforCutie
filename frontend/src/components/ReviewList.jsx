@@ -16,7 +16,7 @@ export default function ReviewList({ userId, reviewType }) {
     setLoading(true)
     const { data, error } = await supabase
       .from('ride_reviews')
-      .select('*, users!reviewer_id(name, avatar_url)')
+      .select('*, users!reviewer_id(name, avatar_url, show_identity)')
       .eq('reviewee_id', userId)
       .eq('review_type', reviewType)
       .order('created_at', { ascending: false })

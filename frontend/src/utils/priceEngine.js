@@ -28,7 +28,19 @@ export const MAX_SEATS = 8
 /** Vehicle-type base multipliers (applied before surge) */
 export const VEHICLE_MULTIPLIERS = {
   Auto: 1.0,
-  Cab:  1.4,
+  Cab:  1.65,
+}
+
+/** Per-vehicle-type base fare overrides (₹) — cabs have higher base */
+export const VEHICLE_BASE_FARES = {
+  Auto: 25,
+  Cab:  40,
+}
+
+/** Per-vehicle-type per-km rate overrides (₹/km) */
+export const VEHICLE_KM_RATES = {
+  Auto: 10,
+  Cab:  15,
 }
 
 /** Absolute upper cap on a single ride fare (total vehicle) */
@@ -262,8 +274,8 @@ export function calculateSeatPrice(adjustedTotal, seatsFilled, seatsRequestedByU
  */
 export function calculateFinalPrice({
   distance,
-  baseFare              = BASE_FARE,
-  ratePerKm             = PER_KM_RATE,
+  baseFare,                          // if omitted, derived from vehicleType
+  ratePerKm,                         // if omitted, derived from vehicleType
   demand                = 1,
   supply                = 1,
   currentTime           = new Date(),
@@ -275,6 +287,11 @@ export function calculateFinalPrice({
   // Legacy compat
   passengers,
 } = {}) {
+  // Resolve vehicle-specific base fare and km rate if not explicitly passed
+  const resolvedBaseFare  = baseFare  ?? (VEHICLE_BASE_FARES[vehicleType]  ?? BASE_FARE)
+  const resolvedRatePerKm = ratePerKm ?? (VEHICLE_KM_RATES[vehicleType]    ?? PER_KM_RATE)
+  baseFare  = resolvedBaseFare
+  ratePerKm = resolvedRatePerKm
 
   // ── Edge-case guards ──────────────────────────────────────
   if (distance < 0) distance = 0

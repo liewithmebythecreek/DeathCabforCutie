@@ -2,8 +2,9 @@ import React, { useEffect, useState, useRef } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../contexts/AuthContext'
 import DriverRideCard from '../components/DriverRideCard'
-import { Car, Bell, RefreshCw, CheckCircle, Power, Star } from 'lucide-react'
+import { Car, Bell, RefreshCw, CheckCircle, Power, Star, AlertTriangle } from 'lucide-react'
 import { formatStarBreakdown, getDriverRatingBreakdown } from '../utils/reviewEngine'
+import { PRIORITY_CONFIG, isHighPriority } from '../utils/priorityEngine'
 
 const TABS = [
   { id: 'new', label: 'New Requests', icon: Bell, statuses: ['pending_driver'] },
@@ -15,9 +16,11 @@ const TABS = [
 export default function DriverDashboardPage() {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('new')
+  const [priorityFilter, setPriorityFilter] = useState('ALL') // 'ALL' | 'PRIORITY' | 'EMERGENCY'
   const [rides, setRides] = useState([])
   const [loading, setLoading] = useState(true)
   const [driverStatus, setDriverStatus] = useState('available')
+  const [driverVehicleType, setDriverVehicleType] = useState('autorickshaw')
   
   // Review specific state
   const [driverStats, setDriverStats] = useState(null)
@@ -29,11 +32,16 @@ export default function DriverDashboardPage() {
   // userRef: always points at the latest user so async callbacks don't go stale
   const userRef = useRef(user)
   useEffect(() => { userRef.current = user }, [user])
+  // driverVehicleTypeRef: keeps vehicle_type readable inside stale realtime closures
+  const driverVehicleTypeRef = useRef('autorickshaw')
+  useEffect(() => { driverVehicleTypeRef.current = driverVehicleType }, [driverVehicleType])
+  // doFetchRef: always points at latest doFetch so realtime closures never go stale
+  const doFetchRef = useRef(null)
 
   // ── Core fetch (plain async fn, called from effects only) ────────────────
-  const doFetch = async (userId) => {
+  const doFetch = async (userId, isBackground = false) => {
     if (!userId) return
-    setLoading(true)
+    if (!isBackground) setLoading(true)
 
     // Resolve legacy vehicle ID once per session
     if (legacyIdRef.current === undefined) {
@@ -54,14 +62,25 @@ export default function DriverDashboardPage() {
     }
 
     const legacyId = legacyIdRef.current
-    let queryArgs = `assigned_driver_id.eq.${userId},status.eq.pending_driver`
-    if (legacyId) queryArgs += `,driver_id.eq.${legacyId}`
+
+    // Fetch driver profile first to get vehicle_type for filtering
+    const { data: driverProfileData } = await supabase
+      .from('drivers')
+      .select('vehicle_type')
+      .eq('id', userId)
+      .single()
+    const myVehicleType = driverProfileData?.vehicle_type || 'autorickshaw'
+
+    // Rides where the driver is already assigned (any status)
+    let assignedArgs = `assigned_driver_id.eq.${userId}`
+    if (legacyId) assignedArgs += `,driver_id.eq.${legacyId}`
 
     const [{ data, error }, { data: offersData }, { data: reviewsData }, { data: driverData }] = await Promise.all([
       supabase
         .from('rides')
         .select(`*, users!creator_id(name, avatar_url, rating)`)
-        .or(queryArgs)
+        // Return rides that are: assigned to this driver OR open marketplace matching vehicle type
+        .or(`${assignedArgs},and(status.eq.pending_driver,vehicle_type.eq.${myVehicleType})`)
         .not('status', 'in', '("cancelled","completed","awaiting_reviews","rejected")')
         .order('created_at', { ascending: false }),
       supabase
@@ -76,7 +95,7 @@ export default function DriverDashboardPage() {
         .order('created_at', { ascending: false }),
       supabase
         .from('drivers')
-        .select('status, average_rating, total_reviews')
+        .select('status, average_rating, total_reviews, vehicle_type')
         .eq('id', userId)
         .single()
     ])
@@ -98,11 +117,15 @@ export default function DriverDashboardPage() {
     if (reviewsData) setMyReviews(reviewsData)
     if (driverData) {
       setDriverStatus(driverData.status)
+      setDriverVehicleType(driverData.vehicle_type || 'autorickshaw')
       setDriverStats({ average_rating: driverData.average_rating, total_reviews: driverData.total_reviews })
     }
 
-    setLoading(false)
+    if (!isBackground) setLoading(false)
   }
+
+  // Keep ref always pointing at latest doFetch
+  doFetchRef.current = doFetch
 
   // ── Initial data load ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -111,15 +134,46 @@ export default function DriverDashboardPage() {
 
     // Async IIFE keeps setState deferred (not synchronous in effect body)
     ;(async () => {
-      await doFetch(user.id)
+      await doFetchRef.current(user.id, false)
     })()
   }, [user?.id])
 
   // ── Realtime subscription ─────────────────────────────────────────────────
-  // All callbacks use userRef / legacyIdRef so they're never stale closures.
+  // All callbacks use refs so they're never stale closures.
   useEffect(() => {
     if (!user?.id) return
     const userId = user.id
+
+    const triggerFetch = () => {
+      doFetchRef.current?.(userId, true)
+    }
+
+    // Play a short beep via Web Audio API for high-priority alerts
+    const playAlert = (isEmergency) => {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)()
+        const oscillator = ctx.createOscillator()
+        const gain = ctx.createGain()
+        oscillator.connect(gain)
+        gain.connect(ctx.destination)
+        oscillator.frequency.value = isEmergency ? 880 : 660
+        oscillator.type = 'sine'
+        gain.gain.setValueAtTime(0.4, ctx.currentTime)
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6)
+        oscillator.start(ctx.currentTime)
+        oscillator.stop(ctx.currentTime + 0.6)
+        // For emergency, play a second beep
+        if (isEmergency) {
+          const o2 = ctx.createOscillator()
+          const g2 = ctx.createGain()
+          o2.connect(g2); g2.connect(ctx.destination)
+          o2.frequency.value = 1100; o2.type = 'sine'
+          g2.gain.setValueAtTime(0.4, ctx.currentTime + 0.7)
+          g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.3)
+          o2.start(ctx.currentTime + 0.7); o2.stop(ctx.currentTime + 1.3)
+        }
+      } catch (_) { /* Web Audio not available */ }
+    }
 
     const channel = supabase
       .channel(`driver-dashboard-${userId}`)
@@ -127,29 +181,48 @@ export default function DriverDashboardPage() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'rides' },
         (payload) => {
-          const checkMatch = (row) => row && (
-            row.status === 'pending_driver' ||
-            row.assigned_driver_id === userId ||
-            (legacyIdRef.current && row.driver_id === legacyIdRef.current)
-          );
-          
-          if (checkMatch(payload.old) || checkMatch(payload.new)) {
-            ;(async () => { await doFetch(userId) })()
+          const myType = driverVehicleTypeRef.current || 'autorickshaw'
+          const row = payload.new
+          const checkMatch = (r) => {
+            if (!r) return false
+            if (r.assigned_driver_id === userId) return true
+            if (legacyIdRef.current && r.driver_id === legacyIdRef.current) return true
+            if (r.status === 'pending_driver' && r.vehicle_type === myType) return true
+            return false
+          }
+          if (checkMatch(payload.old) || checkMatch(row)) {
+            triggerFetch()
+            // High-priority alert: auto-focus New Requests + play sound
+            if (
+              payload.eventType === 'INSERT' &&
+              row?.status === 'pending_driver' &&
+              row?.vehicle_type === myType &&
+              (row?.priority_score || 0) >= 4
+            ) {
+              setActiveTab('new')
+              setPriorityFilter(row.priority_type === 'EMERGENCY' ? 'EMERGENCY' : 'PRIORITY')
+              playAlert(row.priority_type === 'EMERGENCY')
+            }
           }
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'ride_offers', filter: `driver_id=eq.${userId}` },
-        () => { ;(async () => { await doFetch(userId) })() }
+        triggerFetch
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'ride_reviews', filter: `driver_id=eq.${userId}` },
-        () => { ;(async () => { await doFetch(userId) })() }
+        triggerFetch
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'drivers', filter: `id=eq.${userId}` },
+        triggerFetch
       )
       .subscribe((status) => {
-        if (status === 'SUBSCRIBED') ;(async () => { await doFetch(userId) })()
+        if (status === 'SUBSCRIBED') triggerFetch()
       })
 
     // Synchronous cleanup — no async gap where channel leaks can happen
@@ -181,7 +254,27 @@ export default function DriverDashboardPage() {
   })
 
   const activeStatuses = TABS.find(t => t.id === activeTab)?.statuses || []
-  const filteredRides = visibleRides.filter(r => activeStatuses.includes(r.driverMetaStatus))
+
+  // Sort by priority_score DESC, then created_at ASC (older first for equal priority)
+  const sortedByPriority = (arr) => [...arr].sort((a, b) => {
+    const scoreDiff = (b.priority_score || 0) - (a.priority_score || 0)
+    if (scoreDiff !== 0) return scoreDiff
+    return new Date(a.created_at) - new Date(b.created_at)
+  })
+
+  const filteredRides = (() => {
+    let base = visibleRides.filter(r => activeStatuses.includes(r.driverMetaStatus))
+    if (activeTab === 'new') {
+      if (priorityFilter === 'PRIORITY') base = base.filter(r => (r.priority_score || 0) >= 2)
+      if (priorityFilter === 'EMERGENCY') base = base.filter(r => r.priority_type === 'EMERGENCY')
+      base = sortedByPriority(base)
+    }
+    return base
+  })()
+
+  const emergencyCount = visibleRides.filter(r =>
+    r.driverMetaStatus === 'pending_driver' && r.priority_type === 'EMERGENCY'
+  ).length
 
   const countFor = (tab) => {
     if (tab.id === 'reviews') return myReviews.length
@@ -202,6 +295,14 @@ export default function DriverDashboardPage() {
                 <span style={{ fontSize: '0.75rem', opacity: 0.8, marginLeft: '0.2rem' }}>({driverStats.total_reviews})</span>
               </div>
             )}
+            <div style={{
+              padding: '0.2rem 0.7rem', borderRadius: '999px', fontSize: '0.8rem', fontWeight: '700',
+              background: driverVehicleType === 'cab' ? 'rgba(99,102,241,0.15)' : 'rgba(234,179,8,0.15)',
+              color: driverVehicleType === 'cab' ? '#818cf8' : '#ca8a04',
+              border: `1px solid ${driverVehicleType === 'cab' ? 'rgba(99,102,241,0.3)' : 'rgba(234,179,8,0.3)'}`,
+            }}>
+              {driverVehicleType === 'cab' ? '🚕 Cab' : '🛺 Auto'}
+            </div>
           </div>
           <p style={{ color: 'var(--text-muted)', marginTop: '0.25rem', fontSize: '0.9rem' }}>
             Welcome back, {user?.name || 'Driver'}
@@ -234,11 +335,21 @@ export default function DriverDashboardPage() {
         {TABS.slice(0,3).map(tab => {
           const Icon = tab.icon
           const count = countFor(tab)
+          const isEmergencyTab = tab.id === 'new' && emergencyCount > 0
           return (
-            <div key={tab.id} className="glass-card" style={{ padding: '1rem', textAlign: 'center' }}>
-              <Icon size={20} color="var(--primary)" style={{ marginBottom: '0.5rem' }} />
+            <div key={tab.id} className="glass-card" style={{
+              padding: '1rem', textAlign: 'center',
+              border: isEmergencyTab ? '1px solid rgba(239,68,68,0.4)' : undefined,
+              background: isEmergencyTab ? 'rgba(239,68,68,0.05)' : undefined,
+            }}>
+              <Icon size={20} color={isEmergencyTab ? '#ef4444' : 'var(--primary)'} style={{ marginBottom: '0.5rem' }} />
               <div style={{ fontSize: '1.75rem', fontWeight: '800' }}>{count}</div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{tab.label}</div>
+              {isEmergencyTab && (
+                <div style={{ fontSize: '0.7rem', color: '#ef4444', fontWeight: '700', marginTop: '0.25rem' }}>
+                  🚨 {emergencyCount} Emergency
+                </div>
+              )}
             </div>
           )
         })}
@@ -290,6 +401,44 @@ export default function DriverDashboardPage() {
           )
         })}
       </div>
+
+      {/* Priority filter pills — only shown in New Requests tab */}
+      {activeTab === 'new' && (
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: '600', letterSpacing: '0.05em' }}>FILTER:</span>
+          {[
+            { id: 'ALL',       label: 'All',           style: {} },
+            { id: 'PRIORITY',  label: '⚡ Priority',    style: { color: '#f59e0b', border: 'rgba(245,158,11,0.4)' } },
+            { id: 'EMERGENCY', label: '🚨 Emergency',   style: { color: '#ef4444', border: 'rgba(239,68,68,0.4)' } },
+          ].map(f => {
+            const active = priorityFilter === f.id
+            return (
+              <button
+                key={f.id}
+                onClick={() => setPriorityFilter(f.id)}
+                style={{
+                  padding: '0.3rem 0.9rem',
+                  borderRadius: '999px',
+                  border: `1.5px solid ${active ? (f.style.border || 'var(--primary)') : 'var(--border)'}`,
+                  background: active ? (f.id === 'EMERGENCY' ? 'rgba(239,68,68,0.12)' : f.id === 'PRIORITY' ? 'rgba(245,158,11,0.12)' : 'rgba(99,102,241,0.12)') : 'transparent',
+                  color: active ? (f.style.color || 'var(--primary)') : 'var(--text-muted)',
+                  fontWeight: active ? '700' : '400',
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {f.label}
+                {f.id === 'EMERGENCY' && emergencyCount > 0 && (
+                  <span style={{ marginLeft: '4px', background: '#ef4444', color: 'white', borderRadius: '999px', padding: '0 5px', fontSize: '0.7rem', fontWeight: '800' }}>
+                    {emergencyCount}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {/* Ride Cards / Reviews Content */}
       {loading ? (
@@ -353,9 +502,11 @@ export default function DriverDashboardPage() {
         <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }} className="glass-card">
           <Car size={40} style={{ marginBottom: '1rem', opacity: 0.3 }} />
           <p style={{ margin: 0 }}>
-            {activeTab === 'new' && 'No new ride requests at the moment.'}
-            {activeTab === 'negotiating' && 'No active negotiations.'}
-            {activeTab === 'accepted' && 'No accepted rides yet.'}
+            {activeTab === 'new' && priorityFilter !== 'ALL'
+              ? `No ${priorityFilter.toLowerCase()} priority rides right now.`
+              : activeTab === 'new' ? 'No new ride requests at the moment.'
+              : activeTab === 'negotiating' ? 'No active negotiations.'
+              : 'No accepted rides yet.'}
           </p>
         </div>
       ) : (

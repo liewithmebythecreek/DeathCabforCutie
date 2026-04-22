@@ -3,6 +3,7 @@ import { MapPin, Clock, IndianRupee, Navigation, Route, Car, CheckCircle2 } from
 import NegotiationPanel from './NegotiationPanel'
 import { navigateToPickup, navigateRide } from '../utils/geoUtils'
 import { supabase } from '../supabaseClient'
+import { PRIORITY_CONFIG } from '../utils/priorityEngine'
 
 const STATUS_COLORS = {
   pending_driver: '#f59e0b',
@@ -83,13 +84,28 @@ export default function DriverRideCard({ ride, onUpdate }) {
   const statusColor = STATUS_COLORS[ride.status] || 'var(--text-muted)'
   const statusLabel = STATUS_LABELS[ride.status] || ride.status
 
+  // Priority
+  const pType  = ride.priority_type || 'NORMAL'
+  const pCfg   = PRIORITY_CONFIG[pType] || PRIORITY_CONFIG.NORMAL
+  const hasPriority = pType !== 'NORMAL'
+  const isEmergency = pType === 'EMERGENCY'
+
   return (
+    <>
+      {/* Pulse keyframe for emergency */}
+      <style>{`
+        @keyframes priority-pulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+          50%       { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+        }
+      `}</style>
     <div
       style={{
-        background: 'var(--bg-card)',
-        border: `1px solid ${statusColor}30`,
+        background: hasPriority ? pCfg.bg : 'var(--bg-card)',
+        border: `1px solid ${hasPriority ? pCfg.border : statusColor + '30'}`,
         borderRadius: '16px',
         overflow: 'hidden',
+        animation: isEmergency ? 'priority-pulse 1.8s ease-in-out infinite' : 'none',
       }}
     >
       {/* Card Header */}
@@ -100,6 +116,19 @@ export default function DriverRideCard({ ride, onUpdate }) {
         justifyContent: 'space-between',
         alignItems: 'center'
       }}>
+        {/* Priority badge — full-width strip for emergency */}
+        {hasPriority && (
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+            padding: '0.25rem 0.7rem', borderRadius: '999px',
+            background: pCfg.bg, border: `1px solid ${pCfg.border}`,
+            color: pCfg.color, fontSize: '0.75rem', fontWeight: '800',
+            marginBottom: '0.5rem',
+            letterSpacing: '0.03em',
+          }}>
+            {pCfg.emoji} {pCfg.label.toUpperCase()}
+          </div>
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1, paddingRight: '1rem' }}>
           {/* Pickup → Destination */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -114,16 +143,31 @@ export default function DriverRideCard({ ride, onUpdate }) {
             <span style={{ fontWeight: '600' }}>{ride.destination_name}</span>
           </div>
         </div>
-        <div style={{
-          padding: '0.25rem 0.75rem',
-          borderRadius: '999px',
-          background: `${statusColor}20`,
-          color: statusColor,
-          fontSize: '0.75rem',
-          fontWeight: '700',
-          textTransform: 'uppercase'
-        }}>
-          {statusLabel}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'flex-end' }}>
+          <div style={{
+            padding: '0.25rem 0.75rem',
+            borderRadius: '999px',
+            background: `${statusColor}20`,
+            color: statusColor,
+            fontSize: '0.75rem',
+            fontWeight: '700',
+            textTransform: 'uppercase'
+          }}>
+            {statusLabel}
+          </div>
+          {ride.vehicle_type && (
+            <div style={{
+              padding: '0.15rem 0.6rem',
+              borderRadius: '999px',
+              fontSize: '0.7rem',
+              fontWeight: '600',
+              background: ride.vehicle_type === 'cab' ? 'rgba(99,102,241,0.15)' : 'rgba(234,179,8,0.15)',
+              color: ride.vehicle_type === 'cab' ? '#818cf8' : '#ca8a04',
+              border: `1px solid ${ride.vehicle_type === 'cab' ? 'rgba(99,102,241,0.3)' : 'rgba(234,179,8,0.3)'}`,
+            }}>
+              {ride.vehicle_type === 'cab' ? '🚕 Cab' : '🛺 Auto'}
+            </div>
+          )}
         </div>
       </div>
 
@@ -149,6 +193,26 @@ export default function DriverRideCard({ ride, onUpdate }) {
           Range: ₹{ride.min_price} – ₹{ride.max_price}
         </div>
       </div>
+
+      {/* Priority note callout */}
+      {hasPriority && ride.priority_notes && (
+        <div style={{
+          margin: '0 1.25rem',
+          padding: '0.6rem 0.85rem',
+          borderRadius: '8px',
+          background: pCfg.bg,
+          border: `1px solid ${pCfg.border}`,
+          color: pCfg.color,
+          fontSize: '0.82rem',
+          fontWeight: '600',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '0.4rem',
+        }}>
+          <span style={{ fontSize: '1rem', flexShrink: 0 }}>{pCfg.emoji}</span>
+          <span style={{ opacity: 0.95 }}>{ride.priority_notes}</span>
+        </div>
+      )}
 
       {/* Negotiation Panel */}
       <div style={{ padding: '1.25rem' }}>
@@ -230,5 +294,6 @@ export default function DriverRideCard({ ride, onUpdate }) {
         </div>
       )}
     </div>
+    </>
   )
 }
