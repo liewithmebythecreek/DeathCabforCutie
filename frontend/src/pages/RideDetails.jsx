@@ -116,7 +116,12 @@ export default function RideDetails() {
     try {
       const { data: rideData, error: rErr } = await supabase
         .from('rides')
-        .select(`*, users!creator_id(name, email, avatar_url, rating, show_identity), registered_vehicles:driver_id(*), drivers:assigned_driver_id(*)`)
+        .select(`
+          *,
+          users!creator_id(name, email, avatar_url, rating, show_identity),
+          registered_vehicles:driver_id(id, name, mobile_number, vehicle_number, vehicle_type, upi_id),
+          drivers:assigned_driver_id(id, name, phone, vehicle_number, vehicle_type, upi_id)
+        `)
         .eq('id', id).single()
       if (rErr) throw rErr
       setRide(rideData)
@@ -648,24 +653,29 @@ export default function RideDetails() {
             Visible to the publisher AND approved passengers.
         ─────────────────────────────────────────────────────────────────────── */}
         {(isCreator || isApproved) && (isActive || isAwaiting || isCompleted) && (() => {
-          // Resolve driver from whichever source is available
-          const driverRaw = ride.external_driver || ride.registered_vehicles || ride.drivers
-          if (!driverRaw?.phone && !driverRaw?.mobile_number) return null
+          // Resolve driver from whichever source is available (assigned > legacy > external)
+          const driverRaw = ride.drivers || ride.registered_vehicles || null
+          const externalRaw = ride.external_driver || null
+          const source = driverRaw || externalRaw
+          if (!source) return null
+
           const driverForPayment = {
-            name:  driverRaw.name || 'Driver',
-            phone: driverRaw.phone || driverRaw.mobile_number,
+            name:   source.name || 'Driver',
+            phone:  source.phone || source.mobile_number || null,
+            upi_id: source.upi_id || null,
           }
-          // Per-person share (mirrors the fare split logic on the page)
-          const joined      = ride.max_occupancy - ride.available_seats
-          const occupants   = joined + 1
-          const perPerson   = ride.total_price > 0
-            ? Math.ceil(ride.total_price / Math.max(1, occupants))
-            : null
+          // Must have at least a UPI ID or a phone to generate payment link
+          if (!driverForPayment.upi_id && !driverForPayment.phone) return null
+
+          // Confirmed riders = approved requests + 1 (the publisher)
+          const approvedCount  = requests.filter(r => r.status === 'approved').length
+          const confirmedTotal = approvedCount + 1
+
           return (
             <PaymentPanel
               driver={driverForPayment}
-              fare={ride.total_price || 0}
-              perPerson={perPerson}
+              totalFare={ride.total_price || 0}
+              riderCount={confirmedTotal}
             />
           )
         })()}

@@ -2,15 +2,16 @@ import React, { useEffect, useState, useRef } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../contexts/AuthContext'
 import DriverRideCard from '../components/DriverRideCard'
-import { Car, Bell, RefreshCw, CheckCircle, Power, Star, AlertTriangle } from 'lucide-react'
+import { Car, Bell, RefreshCw, CheckCircle, Power, Star, AlertTriangle, Wallet, CheckCircle2, AlertCircle } from 'lucide-react'
 import { formatStarBreakdown, getDriverRatingBreakdown } from '../utils/reviewEngine'
 import { PRIORITY_CONFIG, isHighPriority } from '../utils/priorityEngine'
 
 const TABS = [
-  { id: 'new', label: 'New Requests', icon: Bell, statuses: ['pending_driver'] },
-  { id: 'negotiating', label: 'Negotiations', icon: RefreshCw, statuses: ['negotiating', 'price_proposed'] },
-  { id: 'accepted', label: 'Accepted Rides', icon: CheckCircle, statuses: ['published', 'active'] },
-  { id: 'reviews', label: 'My Reviews', icon: Star, statuses: [] },
+  { id: 'new',      label: 'New Requests',     icon: Bell,        statuses: ['pending_driver'] },
+  { id: 'negotiating', label: 'Negotiations',  icon: RefreshCw,   statuses: ['negotiating', 'price_proposed'] },
+  { id: 'accepted', label: 'Accepted Rides',   icon: CheckCircle, statuses: ['published', 'active'] },
+  { id: 'reviews',  label: 'My Reviews',       icon: Star,        statuses: [] },
+  { id: 'payment',  label: 'Payment Settings', icon: Wallet,      statuses: [] },
 ]
 
 export default function DriverDashboardPage() {
@@ -22,9 +23,15 @@ export default function DriverDashboardPage() {
   const [driverStatus, setDriverStatus] = useState('available')
   const [driverVehicleType, setDriverVehicleType] = useState('autorickshaw')
   
-  // Review specific state
+  // Review state
   const [driverStats, setDriverStats] = useState(null)
   const [myReviews, setMyReviews] = useState([])
+
+  // UPI / Payment Settings state
+  const [upiInput, setUpiInput]       = useState('')
+  const [upiSaving, setUpiSaving]     = useState(false)
+  const [upiSaved, setUpiSaved]       = useState(false)
+  const [upiError, setUpiError]       = useState('')
 
   // ── Refs ──────────────────────────────────────────────────────────────────
   // legacyIdRef: resolved once (undefined = not yet fetched, null = no legacy ID)
@@ -95,7 +102,7 @@ export default function DriverDashboardPage() {
         .order('created_at', { ascending: false }),
       supabase
         .from('drivers')
-        .select('status, average_rating, total_reviews, vehicle_type')
+        .select('status, average_rating, total_reviews, vehicle_type, upi_id')
         .eq('id', userId)
         .single()
     ])
@@ -119,6 +126,8 @@ export default function DriverDashboardPage() {
       setDriverStatus(driverData.status)
       setDriverVehicleType(driverData.vehicle_type || 'autorickshaw')
       setDriverStats({ average_rating: driverData.average_rating, total_reviews: driverData.total_reviews })
+      // Pre-fill UPI field if already set
+      if (driverData.upi_id) setUpiInput(driverData.upi_id)
     }
 
     if (!isBackground) setLoading(false)
@@ -238,6 +247,31 @@ export default function DriverDashboardPage() {
       .update({ status: newStatus })
       .eq('id', user.id)
     if (!error) setDriverStatus(newStatus)
+  }
+
+  // ── UPI save ──────────────────────────────────────────────────────────────
+  const UPI_REGEX = /^[a-zA-Z0-9.\-_]{2,}@[a-zA-Z]{2,}$/
+  const saveUPI = async () => {
+    setUpiError('')
+    setUpiSaved(false)
+    const trimmed = upiInput.trim()
+    if (!trimmed) { setUpiError('UPI ID cannot be empty.'); return }
+    if (!UPI_REGEX.test(trimmed)) {
+      setUpiError('Invalid UPI format. Example: yourname@upi or 9876543210@upi')
+      return
+    }
+    setUpiSaving(true)
+    const { error } = await supabase
+      .from('drivers')
+      .update({ upi_id: trimmed })
+      .eq('id', user.id)
+    setUpiSaving(false)
+    if (error) {
+      setUpiError('Failed to save. Please try again.')
+    } else {
+      setUpiSaved(true)
+      setTimeout(() => setUpiSaved(false), 3000)
+    }
   }
 
   const dismissedRides = JSON.parse(localStorage.getItem('dismissed_rides') || '[]')
@@ -444,6 +478,66 @@ export default function DriverDashboardPage() {
       {loading ? (
         <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
           Loading...
+        </div>
+      ) : activeTab === 'payment' ? (
+        <div className="glass-card" style={{ maxWidth: '480px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
+            <Wallet size={20} color="var(--primary)" />
+            <h3 style={{ margin: 0 }}>Payment Settings</h3>
+          </div>
+
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem', lineHeight: 1.6 }}>
+            Set your UPI ID so riders can pay their share directly to you after the ride. This replaces the default phone-based UPI.
+          </p>
+
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '500' }}>
+            Your UPI ID
+          </label>
+          <div style={{ display: 'flex', gap: '0.6rem' }}>
+            <input
+              type="text"
+              className="input-field"
+              value={upiInput}
+              onChange={e => { setUpiInput(e.target.value); setUpiError(''); setUpiSaved(false) }}
+              placeholder="yourname@upi or 9876543210@okaxis"
+              style={{
+                flex: 1,
+                fontFamily: 'monospace',
+                fontSize: '1rem',
+                borderColor: upiError ? '#ef4444' : upiSaved ? '#22c55e' : undefined,
+              }}
+              onKeyDown={e => e.key === 'Enter' && saveUPI()}
+            />
+            <button
+              className="btn"
+              onClick={saveUPI}
+              disabled={upiSaving}
+              style={{ padding: '0.75rem 1.25rem', whiteSpace: 'nowrap', flexShrink: 0 }}
+            >
+              {upiSaving ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+
+          {/* Validation error */}
+          {upiError && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#ef4444', fontSize: '0.83rem', marginTop: '0.6rem' }}>
+              <AlertCircle size={14} /> {upiError}
+            </div>
+          )}
+
+          {/* Success message */}
+          {upiSaved && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#22c55e', fontSize: '0.83rem', marginTop: '0.6rem', fontWeight: '600' }}>
+              <CheckCircle2 size={14} /> UPI ID saved successfully!
+            </div>
+          )}
+
+          <div style={{ marginTop: '1.5rem', padding: '0.85rem 1rem', background: 'rgba(36,138,82,0.07)', borderRadius: '10px', border: '1px solid rgba(36,138,82,0.15)', fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            <strong style={{ color: 'var(--text-main)' }}>Format examples:</strong><br />
+            <code style={{ color: 'var(--primary)' }}>9876543210@upi</code> &nbsp;·&nbsp;
+            <code style={{ color: 'var(--primary)' }}>yourname@okaxis</code> &nbsp;·&nbsp;
+            <code style={{ color: 'var(--primary)' }}>you@paytm</code>
+          </div>
         </div>
       ) : activeTab === 'reviews' ? (
         myReviews.length === 0 ? (

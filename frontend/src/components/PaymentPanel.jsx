@@ -1,52 +1,60 @@
 import React, { useState } from 'react'
-import { Phone, IndianRupee, QrCode, Copy, Check, ExternalLink, ShieldCheck } from 'lucide-react'
+import { Phone, IndianRupee, QrCode, Copy, Check, ExternalLink, ShieldCheck, Users } from 'lucide-react'
 
 /**
  * PaymentPanel
  *
  * Props:
- *   driver  — { name, phone }   (phone = raw number, e.g. "9876543210" or "+919876543210")
- *   fare    — number             (total fare in ₹)
- *   perPerson — number (optional, shown separately when carpooling)
+ *   driver      — { name, phone, upi_id }
+ *   totalFare   — number   (full ride price in ₹)
+ *   riderCount  — number   (confirmed riders, including current user)
  */
-export default function PaymentPanel({ driver, fare, perPerson }) {
+export default function PaymentPanel({ driver, totalFare, riderCount }) {
   const [copied, setCopied] = useState(false)
   const [qrError, setQrError] = useState(false)
 
-  if (!driver?.phone || !fare) return null
+  if (!driver || !totalFare) return null
 
-  // Normalise phone: strip leading +91 / 91 prefix, keep 10 digits
-  const rawDigits = String(driver.phone).replace(/\D/g, '')
-  const phone10   = rawDigits.startsWith('91') && rawDigits.length === 12
-    ? rawDigits.slice(2)
-    : rawDigits
+  // ── Resolve UPI ID ─────────────────────────────────────────────────────────
+  // Prefer driver's custom UPI ID; fall back to <phone>@upi
+  let upiId = driver.upi_id?.trim() || null
+  if (!upiId && driver.phone) {
+    const rawDigits = String(driver.phone).replace(/\D/g, '')
+    const phone10   = rawDigits.startsWith('91') && rawDigits.length === 12
+      ? rawDigits.slice(2)
+      : rawDigits
+    upiId = `${phone10}@upi`
+  }
+  if (!upiId) return null   // no payment info at all
 
-  const upiId   = `${phone10}@upi`
-  const amount  = perPerson ?? fare
-  const upiLink = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(driver.name || 'Driver')}&am=${amount}&cu=INR&tn=${encodeURIComponent('CampusRides Fare')}`
+  // ── Fare split ─────────────────────────────────────────────────────────────
+  const confirmedRiders = Math.max(1, riderCount || 1)
+  const perPerson       = Math.ceil(totalFare / confirmedRiders)
+
+  // ── UPI deep link + QR ────────────────────────────────────────────────────
+  const upiLink = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(driver.name || 'Driver')}&am=${perPerson}&cu=INR&tn=${encodeURIComponent('CampusRides Fare')}`
   const qrUrl   = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=12&data=${encodeURIComponent(upiLink)}`
 
+  // ── Copy handler ───────────────────────────────────────────────────────────
   const copyUPI = async () => {
     try {
       await navigator.clipboard.writeText(upiId)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
     } catch {
-      // Fallback for browsers that block clipboard without interaction
       const el = document.createElement('input')
       el.value = upiId
       document.body.appendChild(el)
       el.select()
       document.execCommand('copy')
       document.body.removeChild(el)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
     }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   return (
     <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
-      {/* Header strip */}
+
+      {/* ── Header strip ───────────────────────────────────────────────── */}
       <div style={{
         background: 'linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)',
         padding: '1rem 1.5rem',
@@ -55,7 +63,7 @@ export default function PaymentPanel({ driver, fare, perPerson }) {
         gap: '0.6rem',
       }}>
         <IndianRupee size={18} color="rgba(255,255,255,0.9)" />
-        <span style={{ color: 'white', fontWeight: '700', fontSize: '1rem', letterSpacing: '-0.01em' }}>
+        <span style={{ color: 'white', fontWeight: '700', fontSize: '1rem' }}>
           Pay Driver
         </span>
         <div style={{
@@ -74,34 +82,59 @@ export default function PaymentPanel({ driver, fare, perPerson }) {
 
       <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', alignItems: 'center' }}>
 
-        {/* Driver info */}
+        {/* ── Driver info ──────────────────────────────────────────────── */}
         <div style={{ width: '100%', textAlign: 'center' }}>
           <div style={{ fontWeight: '700', fontSize: '1.1rem', color: 'var(--text-main)', marginBottom: '0.25rem' }}>
             {driver.name || 'Driver'}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-            <Phone size={13} />
-            {phone10}
-          </div>
-        </div>
-
-        {/* Amount */}
-        <div style={{
-          display: 'flex', alignItems: 'baseline', gap: '0.2rem',
-          color: 'var(--primary)',
-        }}>
-          <span style={{ fontSize: '1.4rem', fontWeight: '700' }}>₹</span>
-          <span style={{ fontSize: '2.8rem', fontWeight: '800', lineHeight: 1, letterSpacing: '-0.03em' }}>
-            {amount}
-          </span>
-          {perPerson && perPerson !== fare && (
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: '0.25rem' }}>
-              your share
-            </span>
+          {driver.phone && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+              <Phone size={13} />
+              {String(driver.phone).replace(/\D/g, '').slice(-10)}
+            </div>
           )}
         </div>
 
-        {/* QR Code */}
+        {/* ── Fare breakdown ───────────────────────────────────────────── */}
+        <div style={{
+          width: '100%',
+          background: 'rgba(36,138,82,0.06)',
+          border: '1px solid rgba(36,138,82,0.15)',
+          borderRadius: '12px',
+          padding: '0.85rem 1rem',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr 1fr',
+          gap: '0.5rem',
+          textAlign: 'center',
+        }}>
+          <div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: '600', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>TOTAL FARE</div>
+            <div style={{ fontWeight: '700', color: 'var(--text-main)', fontSize: '1rem' }}>₹{totalFare}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: '600', letterSpacing: '0.05em', marginBottom: '0.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.2rem' }}>
+              <Users size={9} /> RIDERS
+            </div>
+            <div style={{ fontWeight: '700', color: 'var(--text-main)', fontSize: '1rem' }}>{confirmedRiders}</div>
+          </div>
+          <div style={{ background: 'rgba(36,138,82,0.12)', borderRadius: '8px', padding: '0.4rem 0.2rem' }}>
+            <div style={{ fontSize: '0.68rem', color: 'var(--primary)', fontWeight: '700', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>YOUR SHARE</div>
+            <div style={{ fontWeight: '800', color: 'var(--primary)', fontSize: '1.05rem' }}>₹{perPerson}</div>
+          </div>
+        </div>
+
+        {/* ── Amount hero ──────────────────────────────────────────────── */}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.2rem', color: 'var(--primary)' }}>
+          <span style={{ fontSize: '1.4rem', fontWeight: '700' }}>₹</span>
+          <span style={{ fontSize: '2.8rem', fontWeight: '800', lineHeight: 1, letterSpacing: '-0.03em' }}>
+            {perPerson}
+          </span>
+          <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginLeft: '0.25rem' }}>
+            your share
+          </span>
+        </div>
+
+        {/* ── QR Code ──────────────────────────────────────────────────── */}
         <div style={{
           background: 'white',
           borderRadius: '16px',
@@ -123,7 +156,7 @@ export default function PaymentPanel({ driver, fare, perPerson }) {
           ) : (
             <img
               src={qrUrl}
-              alt="UPI QR Code"
+              alt="UPI QR Code — scan to pay"
               width={220}
               height={220}
               style={{ display: 'block', borderRadius: '8px' }}
@@ -132,7 +165,7 @@ export default function PaymentPanel({ driver, fare, perPerson }) {
           )}
         </div>
 
-        {/* UPI ID */}
+        {/* ── UPI ID row ───────────────────────────────────────────────── */}
         <div style={{
           width: '100%',
           background: 'rgba(36,138,82,0.07)',
@@ -154,6 +187,7 @@ export default function PaymentPanel({ driver, fare, perPerson }) {
               color: 'var(--text-main)',
               fontFamily: 'monospace',
               userSelect: 'all',
+              wordBreak: 'break-all',
             }}>
               {upiId}
             </div>
@@ -180,7 +214,7 @@ export default function PaymentPanel({ driver, fare, perPerson }) {
           </button>
         </div>
 
-        {/* Primary CTA */}
+        {/* ── Primary CTA ──────────────────────────────────────────────── */}
         <a
           href={upiLink}
           style={{
@@ -203,10 +237,10 @@ export default function PaymentPanel({ driver, fare, perPerson }) {
           onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 14px rgba(36,138,82,0.3)' }}
         >
           <ExternalLink size={16} />
-          Pay ₹{amount} via UPI App
+          Pay ₹{perPerson} via UPI App
         </a>
 
-        {/* Hint text */}
+        {/* ── Hints ────────────────────────────────────────────────────── */}
         <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
             Scan the QR or tap the button to pay in your UPI app
