@@ -86,58 +86,97 @@ export default function ProfilePublic() {
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       
-      <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '2rem', padding: '2rem', position: 'relative' }}>
-        
+      {/* ── Profile Hero Card ───────────────────────────────────────────── */}
+      <div className="glass-card" style={{
+        padding: '1.25rem',
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '1rem',
+      }}>
+
+        {/* Settings icon — top-right */}
         {user?.id === id && (
-          <Link to="/profile/settings" style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', color: 'var(--text-muted)' }} title="Edit Profile">
-            <Settings size={28} />
+          <Link
+            to="/profile/settings"
+            style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--text-muted)', lineHeight: 0 }}
+            title="Edit Profile"
+          >
+            <Settings size={20} />
           </Link>
         )}
 
+        {/* Avatar */}
         <div style={{
-          width: '100px',
-          height: '100px',
+          flexShrink: 0,
+          width: '68px',
+          height: '68px',
           borderRadius: '50%',
-          background: anonymize ? 'var(--border)' : 'var(--primary)',
+          background: anonymize ? 'rgba(0,0,0,0.08)' : 'var(--primary)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           overflow: 'hidden',
-          color: anonymize ? 'var(--text-muted)' : 'white'
+          color: anonymize ? 'var(--text-muted)' : 'white',
+          boxShadow: '0 0 0 3px rgba(36,138,82,0.15), 0 2px 8px rgba(0,0,0,0.1)',
         }}>
           {!anonymize && profile.avatar_url ? (
-            <img src={profile.avatar_url} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img
+              src={profile.avatar_url}
+              alt={displayName}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
           ) : (
-            <UserIcon size={48} />
+            <UserIcon size={32} />
           )}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            {displayName}
+        {/* Text block */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', minWidth: 0, paddingRight: user?.id === id ? '1.75rem' : '0' }}>
+
+          {/* Name */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: '700', fontSize: '1.15rem', color: 'var(--text-main)', lineHeight: 1.2 }}>
+              {displayName}
+            </span>
             {anonymize && (
               <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
-                fontSize: '0.75rem', color: 'var(--text-muted)',
-                background: 'rgba(255,255,255,0.07)', padding: '0.2rem 0.6rem',
-                borderRadius: '6px', border: '1px solid var(--border)', fontWeight: 'normal'
+                display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+                fontSize: '0.68rem', color: 'var(--text-muted)',
+                background: 'rgba(0,0,0,0.05)', padding: '0.15rem 0.5rem',
+                borderRadius: '6px', border: '1px solid var(--border)', fontWeight: '500',
+                whiteSpace: 'nowrap',
               }}>
-                <EyeOff size={12} /> Identity hidden
+                <EyeOff size={10} /> Hidden
               </span>
             )}
-          </h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'var(--text-muted)' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#fbbf24', fontWeight: 'bold' }}>
-              <Star size={16} fill="currentColor" /> {profile.rating?.toFixed(1) || 'No ratings'}
+          </div>
+
+          {/* Stats — single compact line */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '0.35rem',
+            fontSize: '0.875rem', color: 'var(--text-muted)',
+            flexWrap: 'nowrap',
+          }}>
+            <Star size={13} fill="#fbbf24" color="#fbbf24" />
+            <span style={{ fontWeight: '700', color: '#b45309' }}>
+              {profile.rating ? profile.rating.toFixed(1) : '—'}
             </span>
-            <span>•</span>
+            <span style={{ opacity: 0.4 }}>·</span>
             <span>{profile.total_reviews || 0} reviews</span>
-            <span>•</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-              <Calendar size={14} />
-              Member since {new Date(profile.created_at || Date.now()).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
+          </div>
+
+          {/* Member since */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '0.3rem',
+            fontSize: '0.78rem', color: 'var(--text-muted)',
+          }}>
+            <Calendar size={12} />
+            <span>
+              Joined {new Date(profile.created_at || Date.now()).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
             </span>
           </div>
+
         </div>
       </div>
 
