@@ -197,7 +197,8 @@ export default function PaymentPanel({ driver, totalFare, riderCount }) {
   )
 
   return (
-    <div className="glass-card" style={{ padding: 0, overflow: 'hidden', maxWidth: '420px', margin: '0 auto' }}>
+    <div className="card-container" style={{ padding: 0 }}>
+    <div className="glass-card" style={{ padding: 0, overflow: 'hidden', width: '100%' }}>
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div style={{
@@ -342,8 +343,7 @@ export default function PaymentPanel({ driver, totalFare, riderCount }) {
                 <img
                   src={qrUrl}
                   alt="Scan to pay via UPI"
-                  width={240} height={240}
-                  style={{ display: 'block', borderRadius: '8px' }}
+                  style={{ display: 'block', borderRadius: '8px', width: '100%', maxWidth: '240px', height: 'auto' }}
                   onError={() => setQrError(true)}
                 />
               )}
@@ -417,6 +417,7 @@ export default function PaymentPanel({ driver, totalFare, riderCount }) {
           to   { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
       `}</style>
+    </div>
     </div>
   )
 }
