@@ -235,7 +235,7 @@ export default function PaymentPanel({ driver, totalFare, riderCount }) {
             {[
               { label: 'TOTAL FARE', val: `₹${totalFare}` },
               { label: 'RIDERS', val: confirmedRiders, icon: <Users size={9} style={{ marginRight: 2 }} /> },
-              { label: 'YOUR SHARE', val: `₹${perPerson}`, highlight: true },
+              { label: 'YOUR SHARE', val: `₹${amount}`, highlight: true },
             ].map(({ label, val, icon, highlight }) => (
               <div key={label} style={{
                 background: highlight ? 'rgba(36,138,82,0.1)' : 'rgba(36,138,82,0.05)',
@@ -350,7 +350,7 @@ export default function PaymentPanel({ driver, totalFare, riderCount }) {
             </div>
           </div>
           <p style={{ textAlign: 'center', fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.6rem' }}>
-            Open any UPI app → Scan &amp; Pay ₹{perPerson}
+            Open any UPI app → Scan &amp; Pay ₹{amount}
           </p>
         </div>
 
