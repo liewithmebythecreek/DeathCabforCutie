@@ -120,7 +120,7 @@ export default function RideDetails() {
           *,
           users!creator_id(name, email, avatar_url, rating, show_identity),
           registered_vehicles:driver_id(id, name, mobile_number, vehicle_number, vehicle_type, upi_id),
-          drivers:assigned_driver_id(id, name, phone, vehicle_number, vehicle_type, upi_id)
+          drivers:assigned_driver_id(id, name, mobile_number, vehicle_number, vehicle_type, upi_id)
         `)
         .eq('id', id).single()
       if (rErr) throw rErr
@@ -661,7 +661,7 @@ export default function RideDetails() {
 
           const driverForPayment = {
             name:   source.name || 'Driver',
-            phone:  source.phone || source.mobile_number || null,
+            phone:  source.mobile_number || null,
             upi_id: source.upi_id || null,
           }
           // Must have at least a UPI ID or a phone to generate payment link
