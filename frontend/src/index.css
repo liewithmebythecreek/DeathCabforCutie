@@ -223,3 +223,103 @@ img {
     grid-column: 1 / -1;
   }
 }
+
+/* ── Driver Dashboard – mobile-first components ──────────────────────────── */
+
+/* Header row: text left, toggle right, always fits */
+.driver-dash-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+/* Stats row: 3 equal clickable pills */
+.driver-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+}
+
+.driver-stat-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.75rem 0.5rem;
+  border-radius: 14px;
+  cursor: pointer;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.driver-stat-pill:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.07);
+}
+
+/* Tab bar: always horizontal, icon + label below, fits all screens */
+.driver-tabs-bar {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 1.25rem;
+}
+
+.driver-tab-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.6rem 0.25rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.driver-tab-btn:hover {
+  color: var(--primary);
+}
+
+.driver-tab-active {
+  color: var(--primary) !important;
+  border-bottom-color: var(--primary) !important;
+  font-weight: 700;
+}
+
+/* Hide text labels on very small screens, show icons only */
+@media (max-width: 400px) {
+  .driver-tab-label {
+    display: none;
+  }
+  .driver-tab-btn {
+    padding: 0.6rem 0.1rem;
+  }
+}
+
+/* On mobile ensure btn in driver dashboard is NOT full-width (override global) */
+@media (max-width: 768px) {
+  .driver-dash-header .btn,
+  .driver-dash-header button {
+    width: auto;
+    padding: 0.45rem 0.9rem;
+    font-size: 0.82rem;
+  }
+  .driver-stats-row {
+    gap: 0.4rem;
+  }
+  .driver-stat-pill {
+    padding: 0.6rem 0.35rem;
+  }
+}

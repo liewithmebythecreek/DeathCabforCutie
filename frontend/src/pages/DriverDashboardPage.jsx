@@ -317,80 +317,88 @@ export default function DriverDashboardPage() {
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <h2 style={{ margin: 0 }}>Driver Dashboard</h2>
-            {driverStats && driverStats.total_reviews > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: 'rgba(251,191,36,0.15)', color: '#f59e0b', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                <Star size={14} fill="currentColor" />
-                {driverStats.average_rating.toFixed(1)} 
-                <span style={{ fontSize: '0.75rem', opacity: 0.8, marginLeft: '0.2rem' }}>({driverStats.total_reviews})</span>
-              </div>
-            )}
+
+      {/* ── Mobile-friendly Header ── */}
+      <div className="driver-dash-header">
+        {/* Left: name + badges */}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <h2 style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.4rem)' }}>Dashboard</h2>
             <div style={{
-              padding: '0.2rem 0.7rem', borderRadius: '999px', fontSize: '0.8rem', fontWeight: '700',
+              padding: '0.15rem 0.55rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: '700',
               background: driverVehicleType === 'cab' ? 'rgba(99,102,241,0.15)' : 'rgba(234,179,8,0.15)',
               color: driverVehicleType === 'cab' ? '#818cf8' : '#ca8a04',
               border: `1px solid ${driverVehicleType === 'cab' ? 'rgba(99,102,241,0.3)' : 'rgba(234,179,8,0.3)'}`,
+              flexShrink: 0,
             }}>
               {driverVehicleType === 'cab' ? '🚕 Cab' : '🛺 Auto'}
             </div>
+            {driverStats && driverStats.total_reviews > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'rgba(251,191,36,0.15)', color: '#b45309', padding: '0.15rem 0.5rem', borderRadius: '12px', fontSize: '0.78rem', fontWeight: '700', flexShrink: 0 }}>
+                <Star size={12} fill="#f59e0b" color="#f59e0b" />
+                {driverStats.average_rating.toFixed(1)}
+                <span style={{ opacity: 0.7, fontWeight: '400' }}>({driverStats.total_reviews})</span>
+              </div>
+            )}
           </div>
-          <p style={{ color: 'var(--text-muted)', marginTop: '0.25rem', fontSize: '0.9rem' }}>
-            Welcome back, {user?.name || 'Driver'}
+          <p style={{ color: 'var(--text-muted)', marginTop: '0.2rem', fontSize: '0.82rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            Hi, {user?.name?.split(' ')[0] || 'Driver'} 👋
           </p>
         </div>
+
+        {/* Right: online toggle — compact pill */}
         <button
           onClick={toggleStatus}
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '0.5rem',
-            padding: '0.5rem 1rem',
+            gap: '0.4rem',
+            padding: '0.45rem 0.9rem',
             borderRadius: '999px',
             border: '2px solid',
-            borderColor: driverStatus === 'available' ? '#22c55e' : 'rgba(255,255,255,0.2)',
-            background: driverStatus === 'available' ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.05)',
+            borderColor: driverStatus === 'available' ? '#22c55e' : 'var(--border)',
+            background: driverStatus === 'available' ? 'rgba(34,197,94,0.1)' : 'rgba(0,0,0,0.03)',
             color: driverStatus === 'available' ? '#22c55e' : 'var(--text-muted)',
             cursor: 'pointer',
-            fontWeight: '600',
-            fontSize: '0.85rem'
+            fontWeight: '700',
+            fontSize: '0.82rem',
+            flexShrink: 0,
+            whiteSpace: 'nowrap',
           }}
         >
-          <Power size={14} />
+          <Power size={13} />
           {driverStatus === 'available' ? 'Online' : 'Offline'}
         </button>
       </div>
 
-      {/* Stats Overview */}
-      <div className="responsive-grid-3" style={{ marginBottom: '2rem' }}>
+      {/* Stats Overview — horizontal scroll on mobile */}
+      <div className="driver-stats-row" style={{ marginBottom: '1.25rem' }}>
         {TABS.slice(0,3).map(tab => {
           const Icon = tab.icon
           const count = countFor(tab)
           const isEmergencyTab = tab.id === 'new' && emergencyCount > 0
           return (
-            <div key={tab.id} className="glass-card" style={{
-              padding: '1rem', textAlign: 'center',
-              border: isEmergencyTab ? '1px solid rgba(239,68,68,0.4)' : undefined,
-              background: isEmergencyTab ? 'rgba(239,68,68,0.05)' : undefined,
-            }}>
-              <Icon size={20} color={isEmergencyTab ? '#ef4444' : 'var(--primary)'} style={{ marginBottom: '0.5rem' }} />
-              <div style={{ fontSize: '1.75rem', fontWeight: '800' }}>{count}</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{tab.label}</div>
-              {isEmergencyTab && (
-                <div style={{ fontSize: '0.7rem', color: '#ef4444', fontWeight: '700', marginTop: '0.25rem' }}>
-                  🚨 {emergencyCount} Emergency
-                </div>
-              )}
-            </div>
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className="driver-stat-pill"
+              style={{
+                border: isEmergencyTab ? '1px solid rgba(239,68,68,0.5)' : activeTab === tab.id ? '1px solid var(--primary)' : '1px solid var(--border)',
+                background: isEmergencyTab ? 'rgba(239,68,68,0.07)' : activeTab === tab.id ? 'rgba(36,138,82,0.07)' : 'var(--bg-card)',
+                color: isEmergencyTab ? '#ef4444' : activeTab === tab.id ? 'var(--primary)' : 'var(--text-muted)',
+              }}
+            >
+              <Icon size={16} />
+              <span style={{ fontSize: '1.4rem', fontWeight: '800', lineHeight: 1, color: isEmergencyTab ? '#ef4444' : 'var(--text-main)' }}>{count}</span>
+              <span style={{ fontSize: '0.68rem', fontWeight: '500', opacity: 0.75, whiteSpace: 'nowrap' }}>{tab.label}</span>
+              {isEmergencyTab && <span style={{ fontSize: '0.62rem', color: '#ef4444', fontWeight: '700' }}>🚨 {emergencyCount}</span>}
+            </button>
           )
         })}
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0' }}>
+      {/* Tabs — icon grid on mobile, full labels on desktop */}
+      <div className="driver-tabs-bar">
         {TABS.map(tab => {
           const Icon = tab.icon
           const count = countFor(tab)
@@ -399,38 +407,23 @@ export default function DriverDashboardPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-                padding: '0.6rem 1rem',
-                background: 'none',
-                border: 'none',
-                borderBottom: isActive ? '2px solid var(--primary)' : '2px solid transparent',
-                color: isActive ? 'var(--primary)' : 'var(--text-muted)',
-                cursor: 'pointer',
-                fontWeight: isActive ? '600' : '400',
-                fontSize: '0.9rem',
-                marginBottom: '-1px',
-                transition: 'all 0.15s ease'
-              }}
+              className={`driver-tab-btn${isActive ? ' driver-tab-active' : ''}`}
             >
-              <Icon size={15} />
-              {tab.label}
-              {count > 0 && tab.id !== 'reviews' && (
-                <span style={{
-                  background: isActive ? 'var(--primary)' : 'rgba(255,255,255,0.15)',
-                  color: isActive ? 'white' : 'var(--text-muted)',
-                  borderRadius: '999px',
-                  padding: '0 6px',
-                  fontSize: '0.7rem',
-                  fontWeight: '700',
-                  minWidth: '18px',
-                  textAlign: 'center'
-                }}>
-                  {count}
-                </span>
-              )}
+              <div style={{ position: 'relative', display: 'inline-flex' }}>
+                <Icon size={17} />
+                {count > 0 && tab.id !== 'reviews' && (
+                  <span style={{
+                    position: 'absolute', top: '-6px', right: '-8px',
+                    background: isActive ? 'var(--primary)' : '#6b7280',
+                    color: 'white', borderRadius: '999px',
+                    padding: '0 4px', fontSize: '0.58rem', fontWeight: '800',
+                    minWidth: '14px', textAlign: 'center', lineHeight: '14px', height: '14px',
+                  }}>
+                    {count}
+                  </span>
+                )}
+              </div>
+              <span className="driver-tab-label">{tab.label}</span>
             </button>
           )
         })}
@@ -438,12 +431,12 @@ export default function DriverDashboardPage() {
 
       {/* Priority filter pills — only shown in New Requests tab */}
       {activeTab === 'new' && (
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: '600', letterSpacing: '0.05em' }}>FILTER:</span>
+        <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Filter:</span>
           {[
-            { id: 'ALL',       label: 'All',           style: {} },
-            { id: 'PRIORITY',  label: '⚡ Priority',    style: { color: '#f59e0b', border: 'rgba(245,158,11,0.4)' } },
-            { id: 'EMERGENCY', label: '🚨 Emergency',   style: { color: '#ef4444', border: 'rgba(239,68,68,0.4)' } },
+            { id: 'ALL',       label: 'All' },
+            { id: 'PRIORITY',  label: '⚡ Priority',  activeColor: '#f59e0b', activeBg: 'rgba(245,158,11,0.12)', activeBorder: 'rgba(245,158,11,0.4)' },
+            { id: 'EMERGENCY', label: '🚨 Emergency', activeColor: '#ef4444', activeBg: 'rgba(239,68,68,0.12)',  activeBorder: 'rgba(239,68,68,0.4)' },
           ].map(f => {
             const active = priorityFilter === f.id
             return (
@@ -451,20 +444,21 @@ export default function DriverDashboardPage() {
                 key={f.id}
                 onClick={() => setPriorityFilter(f.id)}
                 style={{
-                  padding: '0.3rem 0.9rem',
+                  padding: '0.28rem 0.75rem',
                   borderRadius: '999px',
-                  border: `1.5px solid ${active ? (f.style.border || 'var(--primary)') : 'var(--border)'}`,
-                  background: active ? (f.id === 'EMERGENCY' ? 'rgba(239,68,68,0.12)' : f.id === 'PRIORITY' ? 'rgba(245,158,11,0.12)' : 'rgba(99,102,241,0.12)') : 'transparent',
-                  color: active ? (f.style.color || 'var(--primary)') : 'var(--text-muted)',
+                  border: `1.5px solid ${active ? (f.activeBorder || 'var(--primary)') : 'var(--border)'}`,
+                  background: active ? (f.activeBg || 'rgba(36,138,82,0.1)') : 'transparent',
+                  color: active ? (f.activeColor || 'var(--primary)') : 'var(--text-muted)',
                   fontWeight: active ? '700' : '400',
-                  fontSize: '0.82rem',
+                  fontSize: '0.78rem',
                   cursor: 'pointer',
                   transition: 'all 0.15s',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 {f.label}
                 {f.id === 'EMERGENCY' && emergencyCount > 0 && (
-                  <span style={{ marginLeft: '4px', background: '#ef4444', color: 'white', borderRadius: '999px', padding: '0 5px', fontSize: '0.7rem', fontWeight: '800' }}>
+                  <span style={{ marginLeft: '4px', background: '#ef4444', color: 'white', borderRadius: '999px', padding: '0 4px', fontSize: '0.65rem', fontWeight: '800' }}>
                     {emergencyCount}
                   </span>
                 )}
