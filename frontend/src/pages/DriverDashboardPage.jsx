@@ -474,63 +474,92 @@ export default function DriverDashboardPage() {
           Loading...
         </div>
       ) : activeTab === 'payment' ? (
-        <div className="glass-card" style={{ maxWidth: '480px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
-            <Wallet size={20} color="var(--primary)" />
-            <h3 style={{ margin: 0 }}>Payment Settings</h3>
+        <div className="glass-card" style={{ maxWidth: '100%', padding: '1.25rem', borderRadius: '16px', display: 'flex', flexDirection: 'column' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.25rem' }}>
+            <Wallet size={24} color="var(--primary)" />
+            <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700' }}>Payment Settings</h3>
           </div>
-
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-            Set your UPI ID so riders can pay their share directly to you after the ride. This replaces the default phone-based UPI.
+          
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: '0 0 1.25rem 0', opacity: 0.85 }}>
+            Set your UPI ID to receive payments directly
           </p>
 
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '500' }}>
+          <div style={{ height: '1px', background: 'var(--border)', margin: '0 0 1.25rem 0' }} />
+
+          {/* Label */}
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.95rem', color: 'var(--text-main)', fontWeight: '600' }}>
             Your UPI ID
           </label>
-          <div style={{ display: 'flex', gap: '0.6rem' }}>
-            <input
-              type="text"
-              className="input-field"
-              value={upiInput}
-              onChange={e => { setUpiInput(e.target.value); setUpiError(''); setUpiSaved(false) }}
-              placeholder="yourname@upi or 9876543210@okaxis"
-              style={{
-                flex: 1,
-                fontFamily: 'monospace',
-                fontSize: '1rem',
-                borderColor: upiError ? '#ef4444' : upiSaved ? '#22c55e' : undefined,
-              }}
-              onKeyDown={e => e.key === 'Enter' && saveUPI()}
-            />
-            <button
-              className="btn"
-              onClick={saveUPI}
-              disabled={upiSaving}
-              style={{ padding: '0.75rem 1.25rem', whiteSpace: 'nowrap', flexShrink: 0 }}
-            >
-              {upiSaving ? 'Saving...' : 'Save'}
-            </button>
-          </div>
+          
+          {/* Input field */}
+          <input
+            type="text"
+            value={upiInput}
+            onChange={e => { setUpiInput(e.target.value); setUpiError(''); setUpiSaved(false) }}
+            placeholder="Enter your UPI ID (e.g. name@upi)"
+            style={{
+              width: '100%',
+              height: '48px',
+              borderRadius: '12px',
+              border: `1px solid ${upiError ? '#ef4444' : upiSaved ? '#22c55e' : 'var(--border)'}`,
+              padding: '0 1rem',
+              fontSize: '1rem',
+              outline: 'none',
+              background: 'rgba(255, 255, 255, 0.7)',
+              color: 'var(--text-main)',
+              fontFamily: 'monospace',
+            }}
+            onKeyDown={e => e.key === 'Enter' && saveUPI()}
+          />
+
+          {/* Helper text */}
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: '0.5rem 0 0 0' }}>
+            This will be used for receiving payments from riders
+          </p>
 
           {/* Validation error */}
           {upiError && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#ef4444', fontSize: '0.83rem', marginTop: '0.6rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#ef4444', fontSize: '0.85rem', marginTop: '0.5rem' }}>
               <AlertCircle size={14} /> {upiError}
             </div>
           )}
 
           {/* Success message */}
           {upiSaved && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#22c55e', fontSize: '0.83rem', marginTop: '0.6rem', fontWeight: '600' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#22c55e', fontSize: '0.85rem', marginTop: '0.5rem', fontWeight: '600' }}>
               <CheckCircle2 size={14} /> UPI ID saved successfully!
             </div>
           )}
 
-          <div style={{ marginTop: '1.5rem', padding: '0.85rem 1rem', background: 'rgba(36,138,82,0.07)', borderRadius: '10px', border: '1px solid rgba(36,138,82,0.15)', fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-            <strong style={{ color: 'var(--text-main)' }}>Format examples:</strong><br />
-            <code style={{ color: 'var(--primary)' }}>9876543210@upi</code> &nbsp;·&nbsp;
-            <code style={{ color: 'var(--primary)' }}>yourname@okaxis</code> &nbsp;·&nbsp;
-            <code style={{ color: 'var(--primary)' }}>you@paytm</code>
+          {/* Save Button */}
+          <button
+            className="btn"
+            onClick={saveUPI}
+            disabled={upiSaving || !upiInput.trim()}
+            style={{
+              width: '100%',
+              height: '48px',
+              borderRadius: '12px',
+              marginTop: '1rem',
+              fontWeight: '600',
+              fontSize: '1rem',
+              justifyContent: 'center',
+            }}
+          >
+            {upiSaving ? 'Saving...' : 'Save UPI ID'}
+          </button>
+
+          <div style={{ height: '1px', background: 'var(--border)', margin: '1.25rem 0' }} />
+
+          {/* Format examples */}
+          <div style={{ padding: '1rem', background: 'rgba(36,138,82,0.05)', borderRadius: '12px', border: '1px solid rgba(36,138,82,0.1)' }}>
+            <strong style={{ color: 'var(--text-main)', fontSize: '0.9rem', display: 'block', marginBottom: '0.5rem' }}>Format examples:</strong>
+            <ul style={{ margin: 0, paddingLeft: '1.5rem', color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.6 }}>
+              <li><code style={{ color: 'var(--primary)', background: 'transparent', fontFamily: 'monospace' }}>9876543210@upi</code></li>
+              <li><code style={{ color: 'var(--primary)', background: 'transparent', fontFamily: 'monospace' }}>yourname@okaxis</code></li>
+              <li><code style={{ color: 'var(--primary)', background: 'transparent', fontFamily: 'monospace' }}>you@paytm</code></li>
+            </ul>
           </div>
         </div>
       ) : activeTab === 'reviews' ? (
