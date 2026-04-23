@@ -133,19 +133,20 @@ img {
   padding: 1rem;
 }
 
-/* Nav */
+/* Nav – DESKTOP (hidden on mobile) */
 .navbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem 0;
-  margin-bottom: 2rem;
+  padding: 1.25rem 0;
+  margin-bottom: 1.75rem;
   border-bottom: 1px solid var(--border);
 }
 
 .nav-links {
   display: flex;
   gap: 1.5rem;
+  align-items: center;
 }
 
 .nav-links a {
@@ -156,6 +157,223 @@ img {
 
 .nav-links a:hover, .nav-links a.active {
   color: var(--text-main);
+}
+
+/* ── Mobile Header Bar ─────────────────────────────────────────────────── */
+.mobile-header {
+  display: none; /* shown only on mobile via media query */
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 900;
+  margin: -1rem -1rem 1rem -1rem; /* cancel app-container padding */
+}
+
+.hamburger-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem;
+  border-radius: 8px;
+  color: var(--text-main);
+  min-width: 40px;
+  min-height: 40px;
+  transition: background 0.15s;
+}
+.hamburger-btn:hover {
+  background: rgba(0,0,0,0.06);
+}
+
+.mobile-badge {
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  background: #ef4444;
+  color: white;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  min-width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  line-height: 1;
+}
+
+/* ── Sidebar Drawer ─────────────────────────────────────────────────────── */
+.sidebar-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 270px;
+  height: 100%;
+  height: 100dvh; /* dynamic viewport on mobile */
+  background: var(--bg-solid, #ffffff);
+  box-shadow: 4px 0 24px rgba(0,0,0,0.12);
+  transform: translateX(-100%);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.sidebar-open {
+  transform: translateX(0);
+}
+
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
+  z-index: 999;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-user-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: rgba(36,138,82,0.05);
+}
+
+.sidebar-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0.5rem 0;
+  flex: 1;
+}
+
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1.25rem;
+  color: var(--text-main);
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border-left: 3px solid transparent;
+  transition: all 0.15s ease;
+  min-height: 48px; /* accessible tap target */
+  cursor: pointer;
+  background: none;
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
+}
+
+.sidebar-nav-item:hover {
+  background: rgba(36,138,82,0.06);
+  color: var(--primary);
+}
+
+.sidebar-nav-active {
+  color: var(--primary) !important;
+  border-left-color: var(--primary) !important;
+  background: rgba(36,138,82,0.08) !important;
+  font-weight: 700 !important;
+}
+
+.sidebar-nav-locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.sidebar-badge {
+  margin-left: auto;
+  background: #ef4444;
+  color: white;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+.sidebar-logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.9rem 1.25rem;
+  margin: 0.5rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-height: 48px;
+}
+.sidebar-logout-btn:hover {
+  background: rgba(239,68,68,0.07);
+  color: #ef4444;
+  border-color: rgba(239,68,68,0.25);
+}
+
+/* ── Swap button (rides search) ─────────────────────────────────────────── */
+.swap-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  padding: 0.4rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.07);
+  transition: transform 0.25s ease, box-shadow 0.2s;
+  width: 34px;
+  height: 34px;
+}
+.swap-btn:hover {
+  transform: rotate(180deg);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+/* ── Rides search card ─────────────────────────────────────────────────── */
+.rides-search-card {
+  padding: 1.25rem;
 }
 
 /* Leaflet Map Overrides to fit Dark Theme */
@@ -187,6 +405,8 @@ img {
 @media (max-width: 768px) {
   .app-container {
     padding: 1rem;
+    /* Extra top padding to account for sticky mobile header */
+    padding-top: 0;
   }
   .glass-card {
     padding: 1.25rem;
@@ -198,16 +418,15 @@ img {
   .create-ride-grid {
     grid-template-columns: 1fr !important;
   }
-  /* Stack navbar links vertically on small screens */
-  .navbar {
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    padding: 1rem 0;
+
+  /* ── Nav: hide desktop, show mobile ── */
+  .desktop-navbar {
+    display: none !important;
   }
-  .nav-links {
-    gap: 1rem;
-    flex-wrap: wrap;
+  .mobile-header {
+    display: flex !important;
   }
+
   /* Full-width buttons on mobile for large tap targets */
   .btn {
     width: 100%;
@@ -227,6 +446,14 @@ img {
     grid-column: 1 / -1;
   }
 }
+
+/* ── Desktop: always hide mobile-only elements ───────────────────────────── */
+@media (min-width: 769px) {
+  .mobile-header    { display: none !important; }
+  .sidebar-drawer   { display: none !important; }
+  .sidebar-overlay  { display: none !important; }
+}
+
 
 /* ── Driver Dashboard – mobile-first components ──────────────────────────── */
 
