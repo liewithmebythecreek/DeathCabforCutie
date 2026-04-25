@@ -8,16 +8,23 @@ export function NotificationProvider({ children }) {
   const { user, role } = useAuth()
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
-  const [toasts, setToasts] = useState([])           // { id, title, message, type }
+  const [toasts, setToasts] = useState([])           // { id, title, message, type, ride_id }
   const fetchedRef = useRef(false)
   const channelRef = useRef(null)
 
   // ── Helpers ───────────────────────────────────────────────
   const pushToast = (notif) => {
-    const toast = { id: notif.id, title: notif.title, message: notif.message, type: notif.type }
+    const toast = {
+      id:      notif.id,
+      title:   notif.title,
+      message: notif.message,
+      type:    notif.type,
+      ride_id: notif.ride_id,
+    }
     setToasts(prev => [toast, ...prev].slice(0, 5)) // max 5 visible at once
-    // Auto-dismiss after 5 s
-    setTimeout(() => dismissToast(toast.id), 5000)
+    // Auto-dismiss after 6 s (ride reminders get 8 s)
+    const delay = notif.type === 'RIDE_REMINDER' ? 8000 : 5000
+    setTimeout(() => dismissToast(toast.id), delay)
   }
 
   const dismissToast = (toastId) => {
@@ -64,9 +71,8 @@ export function NotificationProvider({ children }) {
   }
 
   // ── Init: fetch + realtime ────────────────────────────────
+  // Works for BOTH students and drivers — drivers get NEW_RIDE + RIDE_REMINDER
   useEffect(() => {
-    // Drivers don't get student notifications (they use the driver dashboard)
-    // But we still show them driver-specific notifications if any were routed to them
     if (!user?.id) {
       setNotifications([])
       setUnreadCount(0)
@@ -74,8 +80,6 @@ export function NotificationProvider({ children }) {
       return
     }
 
-    // Only students get a notification inbox (drivers use their dashboard realtime)
-    // Still wire it up for drivers too in case we add driver-facing notifs later
     const userId = user.id
 
     if (!fetchedRef.current) {

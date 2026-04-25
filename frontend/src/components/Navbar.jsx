@@ -77,6 +77,15 @@ export default function Navbar() {
               <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                 {user?.name || 'Driver'} · {user?.vehicle_type || 'Vehicle'}
               </span>
+              {/* Notification Bell for drivers */}
+              <Link to="/notifications" title="Notifications" style={{ position: 'relative', display: 'flex', alignItems: 'center', color: unreadCount > 0 ? 'var(--primary)' : 'var(--text-muted)' }}>
+                <Bell size={20} />
+                {unreadCount > 0 && (
+                  <span style={{ position: 'absolute', top: '-6px', right: '-8px', background: '#ef4444', color: 'white', borderRadius: '999px', fontSize: '0.65rem', fontWeight: '800', minWidth: '17px', height: '17px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', lineHeight: 1 }}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </Link>
             </>
           )}
 
@@ -175,6 +184,7 @@ export default function Navbar() {
           {role === 'driver' && (
             <>
               <NavItem to="/driver-dashboard" icon={LayoutDashboard} label="Dashboard" />
+              <NavItem to="/notifications" icon={Bell} label="Notifications" badge={unreadCount} />
             </>
           )}
         </nav>

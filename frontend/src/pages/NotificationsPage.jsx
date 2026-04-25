@@ -1,14 +1,14 @@
 import React, { useState } from 'react'
-import { Bell, CheckCircle, XCircle, Car, UserPlus, Check, Trash2 } from 'lucide-react'
+import { Bell, CheckCircle, XCircle, Car, UserPlus, Check, Trash2, Clock, Zap } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useNotifications } from '../contexts/NotificationContext'
 import { NOTIF_TYPES } from '../utils/notificationService'
 
 // ── Time formatting ───────────────────────────────────────────
 function timeAgo(dateStr) {
-  const now = new Date()
+  const now  = new Date()
   const then = new Date(dateStr)
-  const diffMs = now - then
+  const diffMs   = now - then
   const diffMins = Math.floor(diffMs / 60000)
   if (diffMins < 1)  return 'just now'
   if (diffMins < 60) return `${diffMins}m ago`
@@ -31,7 +31,7 @@ function groupByDay(notifications) {
     const d = new Date(n.created_at)
     d.setHours(0, 0, 0, 0)
     let label
-    if (d.getTime() === today.getTime())     label = 'Today'
+    if (d.getTime() === today.getTime())         label = 'Today'
     else if (d.getTime() === yesterday.getTime()) label = 'Yesterday'
     else label = d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })
 
@@ -43,18 +43,29 @@ function groupByDay(notifications) {
 
 // ── Icon + colour per type ────────────────────────────────────
 const TYPE_META = {
-  [NOTIF_TYPES.JOIN_REQUEST]:    { Icon: UserPlus,     color: '#6366f1', bg: 'rgba(99,102,241,0.15)',  emoji: '🔔' },
-  [NOTIF_TYPES.JOIN_ACCEPTED]:   { Icon: CheckCircle,  color: '#22c55e', bg: 'rgba(34,197,94,0.15)',   emoji: '✅' },
-  [NOTIF_TYPES.JOIN_REJECTED]:   { Icon: XCircle,      color: '#ef4444', bg: 'rgba(239,68,68,0.15)',   emoji: '❌' },
-  [NOTIF_TYPES.JOIN_CONFIRMED]:  { Icon: CheckCircle,  color: '#22c55e', bg: 'rgba(34,197,94,0.15)',   emoji: '✅' },
-  [NOTIF_TYPES.DRIVER_ASSIGNED]: { Icon: Car,          color: '#f59e0b', bg: 'rgba(245,158,11,0.15)',  emoji: '🚗' },
+  [NOTIF_TYPES.JOIN_REQUEST]:    { Icon: UserPlus,     color: '#6366f1', bg: 'rgba(99,102,241,0.15)',   emoji: '🔔', label: 'Join Request'   },
+  [NOTIF_TYPES.JOIN_ACCEPTED]:   { Icon: CheckCircle,  color: '#22c55e', bg: 'rgba(34,197,94,0.15)',    emoji: '✅', label: 'Accepted'       },
+  [NOTIF_TYPES.JOIN_REJECTED]:   { Icon: XCircle,      color: '#ef4444', bg: 'rgba(239,68,68,0.15)',    emoji: '❌', label: 'Rejected'       },
+  [NOTIF_TYPES.JOIN_CONFIRMED]:  { Icon: CheckCircle,  color: '#22c55e', bg: 'rgba(34,197,94,0.15)',    emoji: '✅', label: 'Confirmed'      },
+  [NOTIF_TYPES.DRIVER_ASSIGNED]: { Icon: Car,          color: '#f59e0b', bg: 'rgba(245,158,11,0.15)',   emoji: '🚗', label: 'Driver'         },
+  [NOTIF_TYPES.NEW_RIDE]:        { Icon: Car,          color: '#10b981', bg: 'rgba(16,185,129,0.15)',   emoji: '🚕', label: 'New Ride'       },
+  [NOTIF_TYPES.RIDE_REMINDER]:   { Icon: Clock,        color: '#f97316', bg: 'rgba(249,115,22,0.2)',    emoji: '⏰', label: 'Reminder', urgent: true },
 }
+
+// Filter categories shown in the tab bar
+const FILTER_TABS = [
+  { id: 'all',      label: 'All' },
+  { id: 'unread',   label: 'Unread' },
+  { id: 'rides',    label: '🚕 Rides',    types: [NOTIF_TYPES.NEW_RIDE, NOTIF_TYPES.DRIVER_ASSIGNED, NOTIF_TYPES.JOIN_ACCEPTED, NOTIF_TYPES.JOIN_REJECTED, NOTIF_TYPES.JOIN_CONFIRMED] },
+  { id: 'reminders',label: '⏰ Reminders', types: [NOTIF_TYPES.RIDE_REMINDER] },
+  { id: 'alerts',   label: '🔔 Alerts',   types: [NOTIF_TYPES.JOIN_REQUEST] },
+]
 
 // ── Single notification row ───────────────────────────────────
 function NotifRow({ notif }) {
   const { markRead, deleteNotification } = useNotifications()
   const navigate = useNavigate()
-  const meta = TYPE_META[notif.type] || { Icon: Bell, color: '#6366f1', bg: 'rgba(99,102,241,0.15)', emoji: '🔔' }
+  const meta = TYPE_META[notif.type] || { Icon: Bell, color: '#6366f1', bg: 'rgba(99,102,241,0.15)', emoji: '🔔', label: '' }
   const { Icon } = meta
 
   const handleClick = () => {
@@ -72,20 +83,29 @@ function NotifRow({ notif }) {
         padding: '1rem 1.25rem',
         borderRadius: '12px',
         cursor: notif.ride_id ? 'pointer' : 'default',
-        background: notif.is_read ? 'transparent' : 'rgba(99,102,241,0.06)',
-        border: notif.is_read ? '1px solid transparent' : '1px solid rgba(99,102,241,0.15)',
+        background: meta.urgent && !notif.is_read
+          ? 'rgba(249,115,22,0.08)'
+          : notif.is_read ? 'transparent' : 'rgba(99,102,241,0.06)',
+        border: meta.urgent && !notif.is_read
+          ? '1px solid rgba(249,115,22,0.3)'
+          : notif.is_read ? '1px solid transparent' : '1px solid rgba(99,102,241,0.15)',
         transition: 'background 0.2s',
         position: 'relative',
       }}
       onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-      onMouseLeave={e => { e.currentTarget.style.background = notif.is_read ? 'transparent' : 'rgba(99,102,241,0.06)' }}
+      onMouseLeave={e => {
+        e.currentTarget.style.background =
+          meta.urgent && !notif.is_read ? 'rgba(249,115,22,0.08)' :
+          notif.is_read ? 'transparent' : 'rgba(99,102,241,0.06)'
+      }}
     >
       {/* Unread dot */}
       {!notif.is_read && (
         <div style={{
           position: 'absolute', top: '1rem', right: '1rem',
           width: '8px', height: '8px', borderRadius: '50%',
-          background: '#6366f1',
+          background: meta.urgent ? meta.color : '#6366f1',
+          boxShadow: meta.urgent ? `0 0 6px ${meta.color}` : undefined,
         }} />
       )}
 
@@ -94,19 +114,30 @@ function NotifRow({ notif }) {
         width: '42px', height: '42px', borderRadius: '50%',
         background: meta.bg, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: meta.urgent && !notif.is_read ? `0 0 10px ${meta.color}50` : undefined,
       }}>
         <Icon size={20} color={meta.color} />
       </div>
 
       {/* Content */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{
-          fontWeight: notif.is_read ? '500' : '700',
-          fontSize: '0.9rem',
-          color: 'var(--text)',
-          marginBottom: '0.2rem',
-        }}>
-          {notif.title}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.1rem', flexWrap: 'wrap' }}>
+          <div style={{
+            fontWeight: notif.is_read ? '500' : '700',
+            fontSize: '0.9rem',
+            color: meta.urgent && !notif.is_read ? meta.color : 'var(--text)',
+          }}>
+            {notif.title}
+          </div>
+          {meta.urgent && !notif.is_read && (
+            <span style={{
+              background: `${meta.color}20`, color: meta.color,
+              borderRadius: '999px', fontSize: '0.62rem', fontWeight: '800',
+              padding: '0.1rem 0.4rem', border: `1px solid ${meta.color}40`,
+            }}>
+              URGENT
+            </span>
+          )}
         </div>
         <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
           {notif.message}
@@ -151,13 +182,18 @@ function NotifRow({ notif }) {
 // ── Page ──────────────────────────────────────────────────────
 export default function NotificationsPage() {
   const { notifications, unreadCount, markAllRead } = useNotifications()
-  const [filter, setFilter] = useState('all') // 'all' | 'unread'
+  const [filter, setFilter] = useState('all')
 
-  const visible = filter === 'unread'
-    ? notifications.filter(n => !n.is_read)
-    : notifications
+  const reminderCount = notifications.filter(n => n.type === NOTIF_TYPES.RIDE_REMINDER && !n.is_read).length
 
-  const grouped = groupByDay(visible)
+  const visible = (() => {
+    const tab = FILTER_TABS.find(t => t.id === filter)
+    if (filter === 'unread') return notifications.filter(n => !n.is_read)
+    if (tab?.types)          return notifications.filter(n => tab.types.includes(n.type))
+    return notifications
+  })()
+
+  const grouped     = groupByDay(visible)
   const groupLabels = Object.keys(grouped)
 
   return (
@@ -177,9 +213,19 @@ export default function NotificationsPage() {
                 {unreadCount}
               </span>
             )}
+            {reminderCount > 0 && (
+              <span style={{
+                background: '#f97316', color: 'white',
+                borderRadius: '999px', fontSize: '0.7rem',
+                fontWeight: '800', padding: '0.1rem 0.5rem',
+                animation: 'notif-pulse 1.5s ease-in-out infinite',
+              }}>
+                ⏰ {reminderCount}
+              </span>
+            )}
           </h2>
           <p style={{ color: 'var(--text-muted)', margin: '0.25rem 0 0', fontSize: '0.875rem' }}>
-            Ride updates and alerts
+            Ride updates, alerts, and reminders
           </p>
         </div>
         {unreadCount > 0 && (
@@ -198,24 +244,28 @@ export default function NotificationsPage() {
       </div>
 
       {/* Filter tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
-        {['all', 'unread'].map(tab => (
+      <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+        {FILTER_TABS.map(tab => (
           <button
-            key={tab}
-            onClick={() => setFilter(tab)}
+            key={tab.id}
+            onClick={() => setFilter(tab.id)}
             style={{
-              padding: '0.4rem 1rem',
+              padding: '0.4rem 0.9rem',
               borderRadius: '999px',
               border: 'none',
               fontWeight: '600',
-              fontSize: '0.85rem',
+              fontSize: '0.82rem',
               cursor: 'pointer',
-              background: filter === tab ? '#6366f1' : 'rgba(255,255,255,0.07)',
-              color: filter === tab ? 'white' : 'var(--text-muted)',
+              background: filter === tab.id ? '#6366f1' : 'rgba(255,255,255,0.07)',
+              color: filter === tab.id ? 'white' : 'var(--text-muted)',
               transition: 'all 0.15s',
+              position: 'relative',
             }}
           >
-            {tab === 'all' ? 'All' : `Unread${unreadCount > 0 ? ` (${unreadCount})` : ''}`}
+            {tab.label}
+            {tab.id === 'unread' && unreadCount > 0 && (
+              <span style={{ marginLeft: '4px', opacity: 0.85 }}>({unreadCount})</span>
+            )}
           </button>
         ))}
       </div>
@@ -256,6 +306,13 @@ export default function NotificationsPage() {
           ))}
         </div>
       )}
+
+      <style>{`
+        @keyframes notif-pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50%       { opacity: 0.75; transform: scale(0.95); }
+        }
+      `}</style>
     </div>
   )
 }

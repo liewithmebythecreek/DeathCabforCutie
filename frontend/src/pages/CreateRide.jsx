@@ -9,6 +9,7 @@ import PriceBreakdownPanel from '../components/PriceBreakdownPanel';
 import { ArrowUpDown, AlertCircle, Info, Clock, Route, Zap, Shield } from 'lucide-react';
 import { PRESET_LOCATIONS } from '../config/locations';
 import { PRIORITY_CONFIG, PRIORITY_TYPES, DAILY_LIMITS, calculatePriorityScore } from '../utils/priorityEngine';
+import { notifyNewRide } from '../utils/notificationService';
 
 export default function CreateRide() {
   const { user } = useAuth();
@@ -157,6 +158,18 @@ export default function CreateRide() {
           ride_id:       rideId,
         }]);
       }
+
+      // ── Notify matching drivers about the new ride ─────────────
+      // Fire-and-forget — don't block navigation on notification errors
+      notifyNewRide({
+        rideId,
+        pickup:       pickup.name || pickupNameInput,
+        destination:  destination.name || destNameInput,
+        vehicleType:  vehicleTypeForPrice,
+        senderId:     user.id,
+        price:        initialP,
+        priorityType: priorityType,
+      }).catch(e => console.warn('[CreateRide] notifyNewRide failed silently:', e))
 
       navigate(`/ride/${rideId}`);
     } catch (err) {

@@ -86,7 +86,7 @@ function AppRoutes() {
         <Route path="/profile/settings" element={<StudentRoute><ProfilePage /></StudentRoute>} />
         <Route path="/profile/:id" element={<ProtectedRoute><ProfilePublic /></ProtectedRoute>} />
         <Route path="/admin/drivers" element={<AdminRoute><AdminDrivers /></AdminRoute>} />
-        <Route path="/notifications" element={<StudentRoute><NotificationsPage /></StudentRoute>} />
+        <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
 
         {/* Driver routes */}
         <Route path="/driver-dashboard" element={<DriverRoute><DriverDashboardPage /></DriverRoute>} />
