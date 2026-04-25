@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, MapPin, Navigation, Loader2, Star } from 'lucide-react';
 import { PRESET_LOCATIONS } from '../config/locations';
-import { searchLocation, reverseGeocode } from '../utils/geoUtils';
+import { searchLocation, getSmartLocation } from '../utils/geoUtils';
 
 /**
  * Location search input with autocomplete.
@@ -103,11 +103,13 @@ export default function LocationSearchInput({
       async (pos) => {
         try {
           const { latitude, longitude } = pos.coords;
-          const locName = await reverseGeocode(latitude, longitude);
+          // Smart matching: snap to nearest preset within its radius,
+          // only fall back to reverse geocoding when no preset matches.
+          const resolved = await getSmartLocation(latitude, longitude, PRESET_LOCATIONS);
           handleSelect({
             lat: latitude,
             lng: longitude,
-            name: locName.name || 'Current Location',
+            name: resolved.name || 'Current Location',
           });
         } catch {
           setError('Could not get current location address.');
@@ -118,7 +120,8 @@ export default function LocationSearchInput({
       () => {
         setLoading(false);
         setError('Location access denied.');
-      }
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
     );
   };
 

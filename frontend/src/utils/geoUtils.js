@@ -21,9 +21,9 @@ export async function searchLocation(query) {
   searchController = new AbortController();
 
   try {
-    // Bias towards campus area (approx: 30.354, 76.372)
+    // Bias towards campus area (IIT Ropar: 30.9687, 76.4731)
     const res = await fetch(
-      `https://photon.komoot.io/api/?q=${encodeURIComponent(trimmedQuery)}&lat=30.354&lon=76.372&zoom=14&limit=5`,
+      `https://photon.komoot.io/api/?q=${encodeURIComponent(trimmedQuery)}&lat=30.9687&lon=76.4731&zoom=14&limit=5`,
       { signal: searchController.signal }
     );
 
@@ -71,6 +71,47 @@ export async function reverseGeocode(lat, lng) {
     console.error("Reverse geocoding error:", err);
     return { name: "Dropped Pin", lat, lng };
   }
+}
+
+/**
+ * Smart location resolver.
+ *
+ * Given GPS coordinates and a list of preset locations (each with a `radius`
+ * in metres), returns:
+ *   - The closest preset's name if it falls within its configured radius, OR
+ *   - A reverse-geocoded name (Nominatim) as fallback.
+ *
+ * This avoids unnecessary API calls when the user is clearly at a known campus
+ * location (hostel, gate, etc.).
+ *
+ * @param {number} lat        - User's current latitude
+ * @param {number} lng        - User's current longitude
+ * @param {Array}  presets    - Array of { name, lat, lng, radius } objects
+ * @returns {Promise<{ name: string, lat: number, lng: number }>}
+ */
+export async function getSmartLocation(lat, lng, presets) {
+  let closestPreset = null;
+  let minDistance = Infinity;
+
+  for (const preset of presets) {
+    // haversineDistance returns km — convert to metres
+    const distanceM = haversineDistance(lat, lng, preset.lat, preset.lng) * 1000;
+    const radius = preset.radius ?? 250; // default 250 m if not specified
+
+    if (distanceM <= radius && distanceM < minDistance) {
+      closestPreset = preset;
+      minDistance = distanceM;
+    }
+  }
+
+  if (closestPreset) {
+    console.log(`[SmartLocation] Matched "${closestPreset.name}" at ${Math.round(minDistance)}m`);
+    return { name: closestPreset.name, lat, lng };
+  }
+
+  // No nearby preset → fall back to reverse geocoding (one API call max)
+  console.log('[SmartLocation] No preset match, falling back to reverse geocode');
+  return reverseGeocode(lat, lng);
 }
 
 /**

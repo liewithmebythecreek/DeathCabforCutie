@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
-import { MapPin, Clock, IndianRupee, Navigation, Route, Car, CheckCircle2 } from 'lucide-react'
+import { MapPin, Clock, IndianRupee, Navigation, Route, Car, CheckCircle2, Calendar } from 'lucide-react'
 import NegotiationPanel from './NegotiationPanel'
 import { navigateToPickup, navigateRide } from '../utils/geoUtils'
 import { supabase } from '../supabaseClient'
 import { PRIORITY_CONFIG } from '../utils/priorityEngine'
+import { formatRideDateTime } from '../utils/dateUtils'
 
 const STATUS_COLORS = {
   pending_driver: '#f59e0b',
@@ -185,8 +186,8 @@ export default function DriverRideCard({ ride, onUpdate }) {
           {dist} km
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-          <Clock size={13} />
-          {new Date(ride.departure_time).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+          <Calendar size={13} />
+          {formatRideDateTime(ride.departure_time)}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
           <IndianRupee size={13} />

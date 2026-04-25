@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../contexts/AuthContext'
-import { MapPin, Users, Clock, IndianRupee, Search, ArrowLeftRight, X } from 'lucide-react'
+import { MapPin, Users, Clock, IndianRupee, Search, ArrowLeftRight, X, Calendar } from 'lucide-react'
 import ProfileCard from '../components/ProfileCard'
 import LocationSearchInput from '../components/LocationSearchInput'
+import { formatRideDateTime } from '../utils/dateUtils'
 
 export default function Rides() {
   const [rides, setRides]   = useState([])
@@ -254,8 +255,10 @@ export default function Rides() {
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: 'auto' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    <Clock size={14} />
-                    {new Date(ride.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    <Calendar size={14} />
+                    <span style={{ fontWeight: ride.departure_time && new Date(ride.departure_time) - new Date() < 3600000 ? '700' : '400' }}>
+                      {formatRideDateTime(ride.departure_time)}
+                    </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                     <Users size={14} />

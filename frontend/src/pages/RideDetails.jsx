@@ -16,6 +16,7 @@ import PaymentPanel from '../components/PaymentPanel'
 import { getRoute, openNavigation } from '../utils/geoUtils'
 import { notifyJoinRequest, notifyJoinAccepted, notifyJoinRejected } from '../utils/notificationService'
 import { PRIORITY_CONFIG } from '../utils/priorityEngine'
+import { formatRideDateTime } from '../utils/dateUtils'
 
 // Fix default leaf icon issues
 delete L.Icon.Default.prototype._getIconUrl
@@ -395,7 +396,7 @@ export default function RideDetails() {
               </div>
               <div><strong>Destination:</strong> {ride.destination_name}</div>
               <div><strong>Approx Distance:</strong> {dist.toFixed(2)} km</div>
-              <div><strong>Departure:</strong> {new Date(ride.departure_time).toLocaleString()}</div>
+              <div><strong>Departure:</strong> {formatRideDateTime(ride.departure_time)}</div>
               <div><strong>Seats:</strong> {ride.available_seats} / {ride.max_occupancy}</div>
               {ride.total_price > 0 && (() => {
                 // Occupants = approved passengers + creator (1)
