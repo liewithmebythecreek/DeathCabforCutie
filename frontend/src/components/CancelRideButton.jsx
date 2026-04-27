@@ -47,16 +47,13 @@ export default function CancelRideButton({ rideId, currentUserId, driverId, onCa
     }
   }
 
-  if (className) {
-    return (
-      <button className={className} style={style} onClick={handleCancel} disabled={loading}>
-        {loading ? 'Cancelling...' : 'Cancel Ride'}
-      </button>
-    )
-  }
-
   return (
-    <button className="btn" style={{ background: '#ef4444', marginTop: '1rem', ...style }} onClick={handleCancel} disabled={loading}>
+    <button 
+      className={className || "btn"} 
+      style={className ? style : { background: '#ef4444', marginTop: '1rem', ...style }} 
+      onClick={handleCancel} 
+      disabled={loading}
+    >
       {loading ? 'Cancelling...' : 'Cancel Ride'}
     </button>
   )
