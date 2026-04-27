@@ -491,10 +491,14 @@ export default function RideDetails() {
             )}
 
             {isCreator && !isCompleted && !isCancelled && !isAwaiting && (isLiveRide || ride.status === 'pending_driver') && (
-              <div style={{ marginTop: '1.5rem', display: 'flex', gap: '1rem' }}>
+              <div className="flex flex-col sm:flex-row gap-3 mt-4 w-full" style={{ marginTop: '1.5rem' }}>
                 {isLiveRide && (
-                  <button className="btn" style={{ background: '#22c55e', flex: 1 }} onClick={handleCompleteRide}>
-                    Mark Completed
+                  <button 
+                    className="w-full sm:flex-1 py-3 px-4 rounded-xl text-white font-semibold whitespace-nowrap" 
+                    style={{ background: '#22c55e', minHeight: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px' }} 
+                    onClick={handleCompleteRide}
+                  >
+                    Mark Complete
                   </button>
                 )}
                 <CancelRideButton 
@@ -502,6 +506,8 @@ export default function RideDetails() {
                   currentUserId={user.id} 
                   driverId={ride.driver_id}
                   onCancelled={() => { setRide({...ride, status: 'cancelled'}) }} 
+                  className="w-full sm:flex-1 py-3 px-4 rounded-xl text-white font-semibold whitespace-nowrap"
+                  style={{ background: '#ef4444', minHeight: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px' }}
                 />
               </div>
             )}
@@ -603,13 +609,10 @@ export default function RideDetails() {
         )}
 
         {/* ── Approved Participants ─────────────────────────────────────────────
-            Visible to every confirmed member of the ride (creator + approved
-            passengers). Real names and avatars are always shown here — this is
-            the trust layer once someone has been accepted into the ride.
+            Visible to all users. Real names and avatars are shown here.
         ─────────────────────────────────────────────────────────────────────── */}
-        {(isCreator || isApproved) && !isCancelled && (isLiveRide || isCompleted || isAwaiting) && (() => {
+        {!isCancelled && (isLiveRide || isCompleted || isAwaiting) && (() => {
           const approved = requests.filter(r => r.status === 'approved')
-          if (approved.length === 0) return null
           return (
             <div className="glass-card">
               <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -632,21 +635,28 @@ export default function RideDetails() {
                     subtitle="Publisher"
                   />
                 </div>
+                
                 {/* Approved passengers */}
-                {approved.map(req => (
-                  <div key={req.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', background: 'rgba(255,255,255,0.04)', borderRadius: '8px' }}>
-                    <ProfileCard
-                      user={{
-                        id: req.user_id,
-                        name: req.users?.name,
-                        avatar_url: req.users?.avatar_url,
-                        rating: req.users?.rating
-                      }}
-                      anonymize={false}
-                      subtitle="Passenger"
-                    />
+                {approved.length === 0 ? (
+                  <div style={{ padding: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center', fontStyle: 'italic' }}>
+                    No passengers have joined yet.
                   </div>
-                ))}
+                ) : (
+                  approved.map(req => (
+                    <div key={req.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', background: 'rgba(255,255,255,0.04)', borderRadius: '8px' }}>
+                      <ProfileCard
+                        user={{
+                          id: req.user_id,
+                          name: req.users?.name,
+                          avatar_url: req.users?.avatar_url,
+                          rating: req.users?.rating
+                        }}
+                        anonymize={false}
+                        subtitle="Passenger"
+                      />
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )

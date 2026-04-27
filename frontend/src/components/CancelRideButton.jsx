@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { supabase } from '../supabaseClient'
 
-export default function CancelRideButton({ rideId, currentUserId, driverId, onCancelled }) {
+export default function CancelRideButton({ rideId, currentUserId, driverId, onCancelled, className, style }) {
   const [loading, setLoading] = useState(false)
 
   const handleCancel = async () => {
@@ -47,8 +47,16 @@ export default function CancelRideButton({ rideId, currentUserId, driverId, onCa
     }
   }
 
+  if (className) {
+    return (
+      <button className={className} style={style} onClick={handleCancel} disabled={loading}>
+        {loading ? 'Cancelling...' : 'Cancel Ride'}
+      </button>
+    )
+  }
+
   return (
-    <button className="btn" style={{ background: '#ef4444', marginTop: '1rem' }} onClick={handleCancel} disabled={loading}>
+    <button className="btn" style={{ background: '#ef4444', marginTop: '1rem', ...style }} onClick={handleCancel} disabled={loading}>
       {loading ? 'Cancelling...' : 'Cancel Ride'}
     </button>
   )

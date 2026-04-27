@@ -20,6 +20,11 @@ try {
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
+// Basic health check endpoint
+app.get('/', (req, res) => {
+  res.json({ status: 'Backend is running', version: '1.0.0' });
+});
+
 // POST /register-token
 app.post('/register-token', async (req, res) => {
   const { userId, token } = req.body;
