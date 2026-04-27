@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { supabase } from '../supabaseClient'
 
-export default function CancelRideButton({ rideId, currentUserId, driverId, onCancelled, className, style }) {
+export default function CancelRideButton({ rideId, currentUserId, driverId, onCancelled, btnStyle }) {
   const [loading, setLoading] = useState(false)
 
   const handleCancel = async () => {
@@ -32,7 +32,7 @@ export default function CancelRideButton({ rideId, currentUserId, driverId, onCa
           reviewee_id: currentUserId, // publisher is the reviewee
           review_type: 'rider_review',
           did_ride_happen: false,
-          rating: 1, // Can assume lowest rating or just leave null if "did_ride_happen=false" implies no rating. Using 1 here.
+          rating: 1,
           comment: 'Ride cancelled by publisher.'
         }))
         await supabase.from('ride_reviews').upsert(reviews, { onConflict: 'ride_id, reviewer_id, reviewee_id' })
@@ -47,10 +47,25 @@ export default function CancelRideButton({ rideId, currentUserId, driverId, onCa
     }
   }
 
+  const defaultStyle = {
+    flex: 1,
+    height: '48px',
+    backgroundColor: '#ef4444',
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: '15px',
+    border: 'none',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  }
+
   return (
     <button 
-      className={className || "btn"} 
-      style={className ? style : { background: '#ef4444', marginTop: '1rem', ...style }} 
+      style={btnStyle || defaultStyle}
       onClick={handleCancel} 
       disabled={loading}
     >

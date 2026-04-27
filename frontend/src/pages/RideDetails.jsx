@@ -491,11 +491,25 @@ export default function RideDetails() {
             )}
 
             {isCreator && !isCompleted && !isCancelled && !isAwaiting && (isLiveRide || ride.status === 'pending_driver') && (
-              <div className="flex flex-row gap-3 mt-4">
+              <div style={{ display: 'flex', flexDirection: 'row', gap: '12px', marginTop: '16px' }}>
                 {isLiveRide && (
                   <button 
-                    className="w-1/2 h-12 flex items-center justify-center rounded-xl bg-green-500 !text-white font-semibold text-sm whitespace-nowrap" 
                     onClick={handleCompleteRide}
+                    style={{
+                      flex: 1,
+                      height: '48px',
+                      backgroundColor: '#22c55e',
+                      color: '#ffffff',
+                      fontWeight: 'bold',
+                      fontSize: '15px',
+                      border: 'none',
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
                   >
                     Mark Complete
                   </button>
@@ -504,8 +518,22 @@ export default function RideDetails() {
                   rideId={id} 
                   currentUserId={user.id} 
                   driverId={ride.driver_id}
-                  onCancelled={() => { setRide({...ride, status: 'cancelled'}) }} 
-                  className={isLiveRide ? "w-1/2 h-12 flex items-center justify-center rounded-xl bg-red-500 !text-white font-semibold text-sm whitespace-nowrap" : "w-full h-12 flex items-center justify-center rounded-xl bg-red-500 !text-white font-semibold text-sm whitespace-nowrap"}
+                  onCancelled={() => { setRide({...ride, status: 'cancelled'}) }}
+                  btnStyle={{
+                    flex: 1,
+                    height: '48px',
+                    backgroundColor: '#ef4444',
+                    color: '#ffffff',
+                    fontWeight: 'bold',
+                    fontSize: '15px',
+                    border: 'none',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
                 />
               </div>
             )}
