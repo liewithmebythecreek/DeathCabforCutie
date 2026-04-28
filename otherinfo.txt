@@ -1,0 +1,122 @@
+CI/CD Pipeline (Continuous Integration & Deployment)
+We implemented a CI/CD pipeline using GitHub and Vercel to automate our development workflow.
+Every time code is pushed to the repository, it is automatically built and deployed on Vercel.
+This ensures that the latest version of the application is always live without manual intervention.
+
+Key Benefits:
+
+🚀 Faster Development: No need for manual deployment after every change
+🔄 Continuous Updates: Real-time reflection of new features and bug fixes
+👥 Team Collaboration: Juniors and contributors can easily add features and see them live
+🛠️ Reduced Errors: Automated builds reduce deployment mistakes
+
+Impact on Our Project:
+
+Enabled smooth scaling of the cab-sharing platform
+Simplified onboarding for new developers
+Maintained a consistent and reliable deployment process
+
+Review & Rating System Implementation
+Users can rate and review drivers and co-passengers after completing a ride
+Ratings are stored in the backend and linked to user profiles
+Average ratings are dynamically calculated and displayed in the app
+Reviews are fetched and shown when selecting a driver or joining a ride
+Ensures only verified users (who completed rides) can leave review
+Integrated into both rider and driver dashboards for visibility
+Relevance to the Platform
+⭐ Builds Trust: Users can choose drivers/riders based on past experiences
+🔒 Enhances Safety: Poorly rated users can be avoided
+📈 Improves Quality: Encourages better behavior and service
+🤝 Better Matching: Helps users make informed ride-sharing decisions
+🧑‍🤝‍🧑 Community Driven: Creates accountability within the platform
+
+Supports informal or user-defined places (e.g., “Hostel Gate 3”, “Back Gate”, “Near Library”)
+Each preset is stored with its label and coordinates in the database
+Presets are available for quick selection during ride publishing or booking
+Why This Was Important
+📍 Many real-world pickup points are not formally listed
+🏫 Especially useful in campus/local environments with common informal spots
+🧠 Matches how users naturally refer to locations
+Impact on the Platform
+⚡ Reduces time required to enter locations repeatedly
+🎯 Improves accuracy of pickup/drop points
+🚗 Minimizes confusion between drivers and passengers
+📱 Creates a more personalized and seamless user experience
+
+Priority Scheduling (Implemented Feature)
+The system assigns priority levels to ride requests based on user-defined factors
+Special cases such as emergency, health conditions, or senior citizens are given higher priority
+Priority flags are stored with the ride request and processed in the matching logic
+Drivers can clearly see highlighted priority requests on their dashboard
+Higher priority rides are surfaced first during ride assignment
+How It Works
+Users can optionally mark a request with a priority condition
+The backend adjusts matching/ordering based on priority levels
+The UI visually distinguishes high-priority requests for drivers
+Ensures fair handling while still maintaining overall system efficiency
+Relevance to the Platform
+🚑 Supports Urgent Needs: Ensures critical cases get faster ride allocation
+⚖️ Smart Resource Allocation: Drivers are guided to serve higher-need users first
+🤝 User Trust: Builds reliability and empathy into the system
+📈 Better Experience: Improves satisfaction for users with genuine urgency
+Impact
+Makes the platform more than just a booking system—adds a human-centric decision layer
+Differentiates your app from basic ride-sharing models
+
+Profile Visibility Control (Implemented Feature)
+
+
+Users can keep their personal details private (e.g., contact info, identity details)
+
+
+At the same time, their ratings and reviews remain visible to others
+
+
+Privacy settings are managed at the user profile level
+
+
+The system separates sensitive data from public reputation data
+
+
+
+How It Works
+
+
+Personal credentials are hidden from other users by default or via settings
+
+
+Only non-sensitive information like ratings, feedback, and ride history summary is displayed
+
+
+Ensures users are evaluated based on their behavior and reliability, not personal details
+
+
+
+Relevance to the Platform
+
+
+🔒 Enhanced Privacy: Protects user identity and sensitive information
+
+
+⭐ Maintains Trust: Reviews and ratings still help others make decisions
+
+
+⚖️ Balanced Transparency: Keeps the system fair without overexposing users
+
+
+🤝 Encourages Participation: Users feel safer joining and using the platform
+
+
+
+Impact
+
+
+Builds a privacy-first system without compromising accountability
+
+
+Creates a safer and more trustworthy ride-sharing environment
+
+
+
+One-line for presentation:
+👉 “We ensure privacy by hiding personal details while still exposing user reputation through reviews.”

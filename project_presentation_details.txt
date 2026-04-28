@@ -1,0 +1,193 @@
+DeathCabforCutie Project Presentation Notes
+Generated on: 2026-04-28
+
+==================================================
+1) Project Overview
+==================================================
+DeathCabforCutie is a campus-focused ride-sharing web application (with mobile-ready support via Capacitor) where students can publish rides, request to join rides, negotiate/confirm driver pricing, chat with participants, navigate routes, pay drivers through UPI, and review each other after ride completion.
+
+Core user personas:
+- Student/Publisher: Creates and manages rides.
+- Student/Rider: Searches and joins rides.
+- Driver: Receives ride opportunities, negotiates offers, navigates pickup/destination, and completes rides.
+- Admin (restricted email): Accesses admin-only driver management route.
+
+==================================================
+2) End-to-End Workflow of the Web App
+==================================================
+A) Authentication and Entry
+1. User lands on /login flow.
+2. AuthContext checks session; role-based route guards in App.jsx redirect:
+   - student -> /
+   - driver -> /driver-dashboard
+3. Unauthorized/unauthenticated users are redirected to login.
+
+B) Ride Discovery and Creation
+1. Student can browse active/published rides from Rides page.
+2. Search supports pickup, destination, and optional departure time.
+3. Student can publish a new ride via /create with geo-selected pickup/destination and timing/seat details.
+
+C) Join and Approval
+1. Rider submits a join request (status: pending).
+2. Publisher reviews pending requests in RideDetails.
+3. Publisher approves/rejects requests; approved riders become participants.
+
+D) Negotiation and Driver Assignment
+1. During negotiation statuses (pending_driver, negotiating, price_proposed), offers are exchanged.
+2. Best driver offers are surfaced and can be accepted.
+3. Once accepted, ride moves to published/active pipeline.
+
+E) Live Ride and Communication
+1. Eligible users (publisher, approved riders, assigned driver) can access ride chat.
+2. Realtime updates are powered by Supabase channels.
+3. Driver sees ride card actions for navigation and completion.
+
+F) Navigation and Execution
+1. Driver uses "Go to Pickup" navigation.
+2. Driver uses "Start Ride" navigation to destination.
+3. Ride can be marked complete (or awaiting reviews when participants exist).
+
+G) Payment and Closure
+1. Once ride is active/awaiting/completed, publisher and approved riders see UPI payment panel.
+2. User is redirected to selected UPI app scheme (GPay/PhonePe/Paytm/generic upi://pay).
+3. QR fallback is available for desktop and app-open failures.
+
+H) Reviews and Reputation
+1. Pending reviews are tracked via dedicated screen.
+2. Rider->Publisher / Publisher->Rider / Rider->Driver reviews are submitted.
+3. Unique constraints and RPC/DB logic prevent duplicate or invalid review submissions.
+
+==================================================
+3) Technical Architecture
+==================================================
+Frontend:
+- React 19 + Vite 7
+- React Router based route protection and role separation
+- Leaflet + React-Leaflet for map display and route context
+- Supabase JS for auth, database access, and realtime subscriptions
+- Firebase client + push hooks for notifications
+- Capacitor integration for mobile push and native bridge readiness
+
+Backend:
+- Node.js + Express server
+- Firebase Admin SDK for push notification delivery
+- Supabase client usage in backend for DB reads/updates
+- node-cron for time-based ride reminders
+
+Data and Realtime:
+- Supabase tables drive rides, ride_requests, ride_offers, users, ride_reviews, chat_messages
+- Supabase Realtime channels refresh UI and trigger backend notification flows
+
+Routing/Navigation Layer:
+- Role-gated app routing in App.jsx
+- Functional navigation helper architecture documented in architecture/navigation.md
+
+==================================================
+4) Requested Showcase Points
+==================================================
+
+1. Reviews
+Implemented review capabilities include:
+- Pending review detection page with realtime refresh.
+- Peer reviews:
+  - Publisher reviews approved passengers.
+  - Rider reviews publisher.
+- Driver review flow via RPC submit_driver_review with rating/tags/comments.
+- Duplicate protection through unique checks and pre-submit existence checks.
+- Review visibility through profile public page and review list tabs.
+
+2. Navigation to the Starting Point
+Implemented in driver flow:
+- DriverRideCard has "Go to Pickup" action.
+- Calls navigateToPickup(pickup_lat, pickup_lng) from geoUtils.
+- RideDetails also has a pickup "Navigate" button using openNavigation(lat,lng).
+
+3. Ride Navigation for Driver's Ease
+Implemented in driver flow:
+- "Start Ride" action launches route navigation from pickup to destination.
+- Uses navigateRide(pickup_lat, pickup_lng, destination_lat, destination_lng).
+- UI logic prevents premature ride-start actions until pickup stage is reached.
+
+4. Payment Redirect
+Implemented in PaymentPanel:
+- Supports deep-link redirects to UPI apps:
+  - Google Pay: tez://upi/pay
+  - PhonePe: phonepe://pay
+  - Paytm: paytmmp://pay
+  - Generic: upi://pay
+- Builds encoded UPI params (payee, amount, currency, note).
+- Fallbacks:
+  - QR code generation for scan-and-pay.
+  - UPI ID copy action.
+  - Toast warning if app open fails.
+
+5. Custom Location Presets
+Implemented in config/locations.js:
+- Centralized preset location list with id/name/lat/lng/radius.
+- Includes campus and city landmark presets (e.g., IIT Ropar Main Gate, hostels, stations).
+- PRESET_LOCATIONS normalized for map/autocomplete handling.
+- MAP_DEFAULTS centered on IIT Ropar to improve first-load UX.
+
+6. Priority Scheduling
+Implemented in priorityEngine.js and related UI:
+- Priority types: NORMAL, SENIOR, MEDICAL, EMERGENCY.
+- Priority config includes labels, base score, visual treatment, and notes requirement.
+- Score logic supports urgency and operational heuristics (wait time, short distance boost).
+- Daily abuse limits for elevated priority categories.
+- Driver-facing cards highlight high-priority rides and pulse EMERGENCY rides.
+
+7. Profile Visibility
+Implemented privacy controls:
+- Profile settings provide show_identity toggle.
+- If disabled, user appears anonymized in listings/public profile.
+- Identity is selectively revealed in trusted ride contexts (e.g., approved participants/creator contexts).
+- Public profile page honors anonymity rules for non-owner viewers.
+
+8. CD Pipeline
+Current implemented state:
+- Deployment configuration exists through vercel.json:
+  - buildCommand: cd frontend && npm install && npm run build
+  - outputDirectory: frontend/dist
+  - SPA rewrite to /index.html for client-side routing.
+- This is a deployment pipeline (CD) for frontend artifacts.
+
+Current gap (important for presentation honesty):
+- No CI workflow/config was found (no .github/workflows or equivalent).
+- Backend deployment automation is not defined in this repository.
+
+==================================================
+5) Additional Technical Highlights (for presentation depth)
+==================================================
+- Realtime collaboration:
+  - Ride, request, offer, and chat updates propagate through Supabase channels.
+- Push notification architecture:
+  - Backend registers FCM tokens.
+  - Sends notifications for new rides, new chat messages, and ride start reminders.
+- State-driven ride lifecycle:
+  - pending_driver -> negotiating -> price_proposed -> published/active -> awaiting_reviews/completed/cancelled
+- Route-level access control:
+  - StudentRoute, DriverRoute, AdminRoute, ProtectedRoute enforce app boundaries.
+- Mobile-readiness:
+  - Capacitor + push hooks indicate path to hybrid mobile app distribution.
+
+
+==================================================
+6) Additional proof slides
+==================================================
+- a mobile screen placeholder for adding the demo proof of the working webapp
+- testing phase proof slide
+
+==================================================
+7) Suggested Slide Structure
+==================================================
+1. Problem + Vision
+2. User Roles and Platform Journey
+3. Workflow Diagram (Auth -> Publish/Join -> Negotiate -> Ride -> Pay -> Review)
+4. Technical Architecture (Frontend, Backend, Supabase)
+5. Feature Spotlight (the 8 required points)
+6. Realtime + Notifications Demo Flow
+7. Reliability/Security
+8. screen workflow proof slide
+9. Testing phase proof slide
+
+
